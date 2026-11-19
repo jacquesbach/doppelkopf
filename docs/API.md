@@ -63,7 +63,7 @@ Armut: Phasen `poverty_pass` → `poverty_offer` → `poverty_return`; `game.pov
 `legalActions`: `poverty_pass {count, cards}`, `poverty_offer`, `poverty_return {count, cards, received}` (`received` = soeben erhaltene Karten, nur dem Käufer);
 Beide Armut-Partner sind Re (`clarified` von Beginn an gesetzt). Ohne Käufer gibt der Tisch sofort neu (gleicher Geber, gleiche Spielnummer);
 `table.redeals` zählt die Neuwürfe dieses Spiels, `table.redealSeat` nennt den Armen, dessen Armut niemand wollte.
-`game.povertyPassed` (nur der Arme, solange gefragt wird: seine abgelegten Karten); `kind: "poverty"` bzw. `baptize`-Auswahl `"poverty"`.
+`game.povertyPassed` (nur der Arme, solange gefragt wird: seine abgelegten Karten); `game.povertyGot` (nur der Arme, nach der Rückgabe: die 3 Karten, die der Käufer ihm zurückgab); `kind: "poverty"` bzw. `baptize`-Auswahl `"poverty"`.
 Nach Spielende werden Stiche, Parteien und Wertung aufgedeckt. Die Stille Hochzeit bleibt bis Spielende verdeckt.
 
 ### Fehlercodes

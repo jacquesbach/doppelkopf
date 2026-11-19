@@ -283,6 +283,11 @@ fragen → Käufer gibt 3 beliebige Karten zurück → Normalspiel** (`GameKind.
 - **Tests:** `backend/tests/rules/test_poverty.py` (30), `backend/tests/service/test_poverty_bots.py`, `test_poverty_redeal.py`, erweiterte Lauf-/Parser-Tests; `tests/lib.test.js`, `tests/selection.test.js`.
 - **Nicht geprüft:** `vite build` und das Rendern der Svelte-Komponenten im Browser (nur der Syntaxcheck `npm run check:svelte` lief); bitte einmal am Handy und am Desktop ausprobieren.
 
+**Armut-Oberfläche:** Gewählte Karten verlassen die Hand und fliegen ins Armuts-Fenster (`PovertyPanel`, Svelte `crossfade` in
+`src/lib/fly.js`); ein ✕ an der Karte nimmt sie zurück auf die Hand. Der Käufer sieht dort die übernommenen Karten klein. Nach der
+Rückgabe öffnet sich beim Armen einmal je Spiel `PovertyGotDialog` mit den neuen Karten (Server: `game.povertyGot`, nur für den Armen).
+Das „NEU“-Siegel gilt nur noch beim Käufer, solange er zurückgibt.
+
 ## Test-Tisch (Betreiber-Bereich, Tab „TEST-TISCH“) (neu)
 
 Zweck: Situationen prüfen, auf die man im echten Spiel lange warten müsste (Armut, Hochzeit, Schweinchen, Endspiel,

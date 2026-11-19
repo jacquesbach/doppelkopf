@@ -1,12 +1,14 @@
 <script>
   import { cardId } from "../../lib/cards.js";
   import { isTouchPrimary, keepSelection, tapCard } from "../../lib/selection.js";
+  import { receive, send } from "../../lib/fly.js";
   import PlayingCard from "../cards/PlayingCard.svelte";
 
   // `playable`: Set erlaubter Karten-IDs (vom Server) oder null, wenn gerade nichts gespielt werden darf.
   // `twoStep`: true = erst auswählen, dann ausspielen (Handy); false = sofort spielen; null = automatisch (Touch-Gerät).
   // `pick`: Armut – statt zu spielen werden mehrere Karten markiert: { selected: [ids], allowed: Set, received: [ids],
   // hint: Text, onToggle(id) }. `received` sind die Karten, die man gerade übernommen hat (Markierung „NEU“).
+  // Gewählte Karten (`selected`) verlassen die Hand: Sie liegen im Armuts-Fenster und fliegen dorthin (bzw. zurück).
   let { hand, playable = null, onplay, twoStep = null, pick = null } = $props();
 
   let touch = $state(isTouchPrimary());
@@ -19,6 +21,10 @@
     return () => mq.removeEventListener?.("change", update);
   });
   const two = $derived(twoStep ?? touch);
+  const shown = $derived(pick ? hand.filter((c) => !pick.selected.includes(cardId(c))) : hand);
+  // Flugeffekt nur beim Armut-Wählen; sonst (z. B. Karte ausspielen) kein Effekt.
+  const flyIn = (node, params) => (pick ? receive(node, params) : { duration: 0 });
+  const flyOut = (node, params) => (pick ? send(node, params) : { duration: 0 });
 
   let selected = $state(null);
   // Zug vorbei oder Karte nicht mehr spielbar → Auswahl verwerfen.
@@ -48,11 +54,11 @@
   </p>
 {/if}
 <ul class="hand" aria-label="Deine Hand">
-  {#each hand as card (cardId(card))}
+  {#each shown as card (cardId(card))}
     {@const id = cardId(card)}
     {@const ok = pick ? (pick.allowed?.has(id) ?? true) : (playable?.has(id) ?? false)}
-    {@const chosen = pick ? pick.selected.includes(id) : selected === id}
-    <li class:sel={chosen} class:fresh={!!pick?.received?.includes(id)}>
+    {@const chosen = !pick && selected === id}
+    <li class:sel={chosen} class:fresh={!!pick?.received?.includes(id)} in:flyIn={{ key: id }} out:flyOut={{ key: id }}>
       <PlayingCard {card} onclick={() => (pick ? pick.onToggle(id) : tap(id))} enabled={ok} selected={chosen} />
     </li>
   {/each}

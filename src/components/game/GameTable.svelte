@@ -25,6 +25,7 @@
   import SeatPlate from "./SeatPlate.svelte";
   import DecisionPanel from "./DecisionPanel.svelte";
   import PovertyPanel from "./PovertyPanel.svelte";
+  import PovertyGotDialog from "./PovertyGotDialog.svelte";
   import CardBack from "../cards/CardBack.svelte";
   import ActionBar from "./ActionBar.svelte";
   import ResultDialog from "./ResultDialog.svelte";
@@ -71,7 +72,7 @@
           hint:
             pickAction.type === "poverty_pass"
               ? `Karten zum Abgeben wählen (${picked.length}/${pickAction.count})`
-              : `Karten zum Zurückgeben wählen (${picked.length}/${pickAction.count}) – neue Karten tragen „NEU“`,
+              : `Karten zum Zurückgeben wählen (${picked.length}/${pickAction.count}) – die übernommenen Karten tragen „NEU“`,
         }
       : null,
   );
@@ -79,6 +80,14 @@
     if (pickAction && pickReady(picked, pickAction.count)) store.act({ type: pickAction.type, cardIds: picked });
   };
   const povertyOffering = $derived(game.phase === "poverty_offer");
+  // Armut-Fenster: gewählte und übernommene Karten als Kartenbilder (aus der eigenen Hand).
+  const handById = $derived(new Map(game.hand.map((c) => [cardId(c), c])));
+  const pickedCards = $derived(picked.map((id) => handById.get(id)).filter(Boolean));
+  const receivedCards = $derived((pickAction?.received ?? []).map((id) => handById.get(id)).filter(Boolean));
+  // Der Arme sieht nach der Rückgabe, welche Karten er bekommen hat (einmal je Spiel; nur er, vom Server geliefert).
+  let gotSeenGame = $state(null);
+  const gotCards = $derived(game.povertyGot ?? []);
+  const showGot = $derived(gotCards.length > 0 && game.phase !== "finished" && gotSeenGame !== gameNumber);
 
   let info = $state(null); // null | "stand" | "last" | "tricks" | "history" | "chat" | "leave"
   let menuOpen = $state(false); // nur Handy: Menü mit den selteneren Knöpfen
@@ -181,9 +190,11 @@
           <PovertyPanel
             kind={pickAction.type}
             count={pickAction.count}
-            picked={picked.length}
+            cards={pickedCards}
+            received={receivedCards}
             busy={store.busy}
             onconfirm={confirmPick}
+            onremove={(id) => (picked = picked.filter((x) => x !== id))}
           />
         {:else}
           {#if povertyOffering}
@@ -272,6 +283,10 @@
     onNext={() => store.nextGame()}
     onNewRound={() => store.start()}
   />
+{/if}
+
+{#if showGot}
+  <PovertyGotDialog cards={gotCards} buyerName={seatName(view, game.poverty?.buyer)} onClose={() => (gotSeenGame = gameNumber)} />
 {/if}
 
 {#if isMyTakeoverWarning(view)}

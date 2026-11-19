@@ -158,6 +158,7 @@ class GameState:
     poverty_queue: list[int] = field(default_factory=list)    # wer noch gefragt wird (im Uhrzeigersinn)
     poverty_buyer: int | None = None             # wer die Armut uebernommen hat
     poverty_received: list[str] = field(default_factory=list)  # Karten-IDs, die der Kaeufer bekam (nur seine Anzeige)
+    poverty_got: list[str] = field(default_factory=list)       # Karten-IDs, die der Kaeufer zurueckgab (nur Anzeige des Armen)
     redeal_seat: int | None = None               # Phase REDEAL: wessen Armut niemand wollte
     # Kartenspiel
     turn: int | None = None
@@ -231,7 +232,7 @@ class GameState:
             "weddingClarifyingTrick": self.wedding_clarifying_trick, "reSeats": list(self.re_seats),
             "povertySeat": self.poverty_seat, "povertyCards": [c.to_dict() for c in self.poverty_cards],
             "povertyQueue": list(self.poverty_queue), "povertyBuyer": self.poverty_buyer,
-            "povertyReceived": list(self.poverty_received), "redealSeat": self.redeal_seat,
+            "povertyReceived": list(self.poverty_received), "povertyGot": list(self.poverty_got), "redealSeat": self.redeal_seat,
             "turn": self.turn,
             "currentTrick": [{"seat": p.seat, "card": p.card.to_dict()} for p in self.current_trick],
             "tricks": [t.to_dict() for t in self.tricks],
@@ -268,6 +269,7 @@ class GameState:
         state.poverty_queue = list(d.get("povertyQueue", []))
         state.poverty_buyer = d.get("povertyBuyer")
         state.poverty_received = list(d.get("povertyReceived", []))
+        state.poverty_got = list(d.get("povertyGot", []))
         state.redeal_seat = d.get("redealSeat")
         state.turn = d["turn"]
         state.current_trick = [Play(p["seat"], Card.from_dict(p["card"])) for p in d["currentTrick"]]
@@ -523,6 +525,7 @@ def _poverty_return(state: GameState, a: PovertyReturn) -> None:
         state.hands[a.seat].remove(c)
     state.hands[state.poverty_seat].extend(chosen)
     state.poverty_received = []
+    state.poverty_got = [c.id for c in chosen]
     _log(state, "poverty_returned", seat=a.seat)
     _begin_play(state, GameType.NORMAL, GameKind.POVERTY)
 
@@ -873,6 +876,8 @@ def player_view(state: GameState, seat: int) -> dict:
     })
     if state.phase is Phase.POVERTY_OFFER and seat == state.poverty_seat:     # die eigenen, abgelegten Karten
         view["povertyPassed"] = [c.to_dict() for c in state.poverty_cards]
+    if state.poverty_got and seat == state.poverty_seat:                       # die zurueckgegebenen Karten
+        view["povertyGot"] = [Card.from_id(i).to_dict() for i in state.poverty_got]
     if state.phase is Phase.FINISHED:  # nach Spielende ist alles aufgedeckt
         view["score"] = state.score.to_dict()
         view["tricks"] = [t.to_dict() for t in state.tricks]

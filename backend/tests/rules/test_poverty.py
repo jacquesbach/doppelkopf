@@ -294,6 +294,20 @@ class PovertyPrivacyTests(unittest.TestCase):
         self.assertNotIn("povertyPassed", spectator)
         self.assertNotIn("poverty_cards", spectator)
 
+    def test_returned_cards_are_shown_only_to_the_poor_player(self):
+        s = to_offer_phase()
+        apply_action(s, PovertyOffer(3, True))
+        given = ids(s, BUYER, "9♣", "9♣", "9♠")
+        self.assertNotIn("povertyGot", player_view(s, POOR))            # noch nicht zurueckgegeben
+        apply_action(s, PovertyReturn(BUYER, given))
+        got = player_view(s, POOR)["povertyGot"]
+        self.assertEqual(sorted(f"{c['rank']}-{c['suit']}-{c['copy']}" for c in got), sorted(given))
+        for seat in (0, 1, BUYER):
+            self.assertNotIn("povertyGot", player_view(s, seat))
+        self.assertNotIn("povertyGot", spectator_view(s))
+        restored = GameState.from_dict(json.loads(json.dumps(s.to_dict())))
+        self.assertEqual(restored.poverty_got, list(given))
+
     def test_log_and_events_name_no_cards(self):
         s = to_offer_phase()
         apply_action(s, PovertyOffer(3, True))

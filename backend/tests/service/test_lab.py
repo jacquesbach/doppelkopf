@@ -210,6 +210,9 @@ class PovertyLabTests(unittest.TestCase):
         self.assertIs(g.phase, Phase.PLAYING)                            # Bot 2 (9 Truempfe) hat gekauft
         self.assertIs(g.kind, GameKind.POVERTY)
         self.assertEqual(sorted(g.re_seats), [0, 1])
+        got = self.svc.view("LAB", 100)["game"]["povertyGot"]          # der Arme sieht, was er zurueckbekam
+        self.assertEqual(len(got), 3)
+        self.assertNotIn("povertyGot", self.svc.view("LAB", 101)["game"])
 
     def test_buyer_perspective(self):
         self.launch("armut_kaeufer")

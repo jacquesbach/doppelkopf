@@ -15,9 +15,9 @@ export const DEMO_LEGAL = Object.freeze({
   email: "kontakt@example.com",
   phone: "+49 123 4567890",
   vatId: "",
-  hostingProvider: "Oracle Cloud Infrastructure",
-  hostingRegion: "Frankfurt am Main, Deutschland",
-  registrar: "GoDaddy",
+  hostingProvider: "Musterprovider",
+  hostingRegion: "Musterstadt",
+  registrar: "Musterregistrar",
 });
 
 const MAX = 200;

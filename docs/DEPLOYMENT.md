@@ -40,7 +40,7 @@ Die `.env` kommt nie ins Git.
 | `LEGAL_COUNTRY` | Variable | `Deutschland` | Land der Anschrift |
 | `LEGAL_PHONE` | Variable | leer | Telefonnummer (empfohlen als zweiter Kontaktweg, siehe unten) |
 | `LEGAL_VAT_ID` | Variable | leer | Umsatzsteuer-ID, nur falls vorhanden |
-| `LEGAL_HOSTING_PROVIDER` | Variable | leer | Datenschutz: Hosting-Anbieter, z. B. `Oracle Cloud Infrastructure` |
+| `LEGAL_HOSTING_PROVIDER` | Variable | leer | Datenschutz: Hosting-Anbieter, z. B. `Hetzner` |
 | `LEGAL_HOSTING_REGION` | Variable | leer | Datenschutz: Standort des Servers, z. B. `Frankfurt am Main, Deutschland` (Region deiner Oracle-Instanz) |
 | `LEGAL_REGISTRAR` | Variable | leer | Datenschutz: Domain-Registrar, z. B. `GoDaddy` |
 

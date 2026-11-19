@@ -119,8 +119,8 @@
         <h2 class="nx-h2">2. Hosting und Server-Protokolle</h2>
         <p>
           {SITE_NAME} wird auf einem Server
-          {#if legal.hostingProvider}bei {legal.hostingProvider}{:else}eines Hosting-Anbieters{/if}{#if legal.hostingRegion}
-            (Standort: {legal.hostingRegion}){/if} betrieben. Der Anbieter verarbeitet Daten in unserem Auftrag. Mit ihm besteht ein
+          {#if legal.hostingProvider}bei {legal.hostingProvider}{:else}eines Hosting-Anbieters{/if}{#if legal.hostingRegion} (Standort: {legal.hostingRegion}){/if} betrieben.
+          Der Anbieter verarbeitet Daten in unserem Auftrag. Mit ihm besteht ein
           Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO.
         </p>
         <p>

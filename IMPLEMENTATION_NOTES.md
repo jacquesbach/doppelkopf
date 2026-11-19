@@ -253,13 +253,6 @@ Host am Rundenende) neben „Ergebnis anzeigen“ und „Stiche ansehen“, wenn
 - **Nicht geprüft:** der Workflow auf GitHub selbst, SSH/rsync gegen einen echten Server, Bau der Docker-Images und das Start-Verhalten der nginx-Vorlage (kein Docker-Daemon bzw. Netz hier).
   Ein erster Deploy per „Run workflow“ zeigt Fehler im Protokoll; Hinweise in `docs/DEPLOYMENT.md` („Fehlersuche“).
 
-## Eigenständigkeit (Herkunftsprüfung)
-- Die Anwendung besteht aus eigenem Code: Regelkern und Tischschicht in Python (nach den DDV-Turnierspielregeln geschrieben), Oberfläche in Svelte.
-  Das frühere Vue/TypeScript-Frontend und die alte Engine sind vollständig ersetzt; keine Quelldatei trägt noch einen Zeitstempel oder Namen aus dem Ausgangsprojekt.
-- Übrig waren nur Projekt-Rahmendateien (Lizenz-, Beitrags- und Verhaltenstext, Nix-Flake, `.gitignore`, `.editorconfig`, Dependabot-/CodeQL-Konfiguration).
-  Sie wurden neu geschrieben bzw. entfernt (Flake). `LICENSE` enthält einen Platzhalter für den eigenen Namen.
-- Offene Bestätigung: `pages/Landing.svelte` und `pages/Lobby.svelte` stammen aus den mitgelieferten Design-Komponenten (Präfix `nb-`); ihre Herkunft ist nicht dokumentiert.
-
 ## Mobile Tischansicht
 
 - **Karten:** `PlayingCard.svelte` zeigt Karten unter ca. 70 px Breite (per Container-Query, also vor allem am Handy) mit großem Eck-Index und einem großen Symbol statt vieler kleiner Punkte. Breitere Karten bleiben unverändert.

@@ -1,7 +1,7 @@
-"""Optional zuschaltbare Regeln (Hausregeln/Kneipenregeln) - alle einzeln an- und abschaltbar.
+"""Optional zuschaltbare Regeln (Hausregeln) - alle einzeln an- und abschaltbar.
 
 Defaults entsprechen den DDV-Turnierspielregeln: nur *Spiel mit Dullen*, *Karlchen* und
-*Fuchsjagd* sind an. Das Deck (mit/ohne Neunen = "Scharfer Doppelkopf") ist keine Option in
+*Fuchsjagd* sind an. Das Deck (mit/ohne Neunen) ist keine Option in
 ``RuleOptions``, sondern die separate ``DeckVariant``; ``rule_schema()`` fuehrt es der
 Oberflaeche zuliebe trotzdem mit auf.
 """
@@ -15,20 +15,20 @@ from .errors import RuleViolation
 
 @dataclass(frozen=True)
 class RuleOptions:
-    # --- Beliebte Regeln ---
+    # --- Gängige Varianten ---
     dulle: bool = True                          # Herz-10 ist hoechster Trumpf; aus: normale Herz-Karte
     karlchen: bool = True                       # Sonderpunkt: letzten Stich mit Kreuz-Bube gewinnen
     fuchsjagd: bool = True                      # Sonderpunkt: gegnerischen Fuchs (Karo-Ass) gefangen
     mandatory_announcements: bool = False       # Gewinner des 1. Stichs muss Re/Kontra ansagen (nur Normalspiel)
     solo_leads: bool = False                    # Solo-Spieler spielt immer aus (auch im Lustsolo)
-    # --- Kneipenregeln ---
+    # --- Hausregeln ---
     karlchen_caught: bool = False               # Sonderpunkt: gegnerischen Kreuz-Buben im letzten Stich fangen
     schweinchen: bool = False                   # 2x Karo-Ass auf der Hand: zu hoechsten Truempfen erklaerbar
     bock_heart_trick: bool = False              # Bockrunde nach Stich aus 4 Herz-Fehlkarten
     bock_zero_game: bool = False                # Bockrunde nach Spiel mit 0 Punkten
     bock_120: bool = False                      # Bockrunde bei 120:120 Augen
     second_dulle_wins: bool = False             # zweite Dulle sticht die erste
-    second_dulle_wins_except_last: bool = False  # ... ausser im letzten Stich
+    second_dulle_wins_except_last: bool = False  # ausser im letzten Stich
 
     def __post_init__(self) -> None:
         for spec in OPTION_SPECS:

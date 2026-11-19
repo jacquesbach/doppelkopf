@@ -32,7 +32,7 @@
     <section class="nb-hero">
       <div class="nb-container nb-hero-grid">
         <div class="nb-hero-copy">
-          <div class="nb-badge nb-bg-lavender">VERSION 1.0-BETA // KEINE WERBUNG</div>
+          <div class="nb-badge nb-bg-lavender">VERSION 1.0-BETA</div>
           <h1 class="nb-display">
             <span class="nb-highlight">DOPPELKOPF.</span><br />
             OHNE SCHNICK&shy;SCHNACK.
@@ -43,7 +43,7 @@
           </p>
           <div class="nb-cta-group" id="start">
             <a href="#modes" class="nb-btn nb-btn-lg nb-bg-coral">SOFORT LOSLEGEN &rarr;</a>
-            <a href="#features" class="nb-btn nb-btn-lg nb-bg-white">REGELWERK PRÜFEN</a>
+            <!--<a href="#features" class="nb-btn nb-btn-lg nb-bg-white">REGELWERK PRÜFEN</a>-->
           </div>
         </div>
 

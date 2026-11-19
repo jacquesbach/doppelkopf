@@ -1,8 +1,7 @@
 """Mischen und Geben (TSR 3.3). Zufall ist bewusst vom Regelkern getrennt.
 
 Der Regelkern bekommt eine *fertige Kartenreihenfolge*; ``shuffled_deck`` ist nur eine
-Hilfsfunktion fuer die Service-Schicht. Es wird fair (ohne Verteilungsfilter) gemischt:
-die Zusatzbedingungen des Originals (``Hand.isPlayable``) sind kein DDV-Bestandteil.
+Hilfsfunktion fuer die Service-Schicht. Es wird fair (ohne Verteilungsfilter) gemischt.
 """
 from __future__ import annotations
 

@@ -104,7 +104,7 @@ def _special_items(tricks: Sequence[CompletedTrick], re_seats: Sequence[int],
     taker = party_of(last.winner_seat)
     if options.karlchen and last.winning_card.face == _CHARLIE:
         items[taker].append(Item("charlie_last_trick", 1))
-    if options.karlchen_caught:                                      # Kneipenregel (Original: charlie_caught)
+    if options.karlchen_caught:
         for p in last.plays:
             if p.card.face == _CHARLIE and party_of(p.seat) is not taker:
                 items[taker].append(Item("charlie_caught", 1))

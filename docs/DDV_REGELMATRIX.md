@@ -55,7 +55,7 @@ Status: ✅ umgesetzt und getestet · 🟡 umgesetzt mit Annahme/Auslegung (sieh
 
 ## 1b. Optionale Regeln (gängige Varianten / Hausregeln)
 
-Alle Optionen sind einzeln an- und abschaltbar (`RuleOptions`, `rule_schema()` liefert Texte/Gruppen/Defaults für die Oberfläche, `settings_from_dict()` nimmt das Einstellungsobjekt entgegen). Gewählt wird **vor Rundenbeginn**; Optionen und Deck-Variante bleiben während der Runde fest (sie stehen in `RoundState` und `GameState`). Defaults = nur die Regeln mit rotem Haken im Original: **Spiel mit Dullen, Karlchen, Fuchsjagd**. Deck + Defaults = Profil `ddv_tsr_2026` (48 Karten) bzw. `house_no_nines` (40 Karten); jede andere Kombination heißt `custom`.
+Alle Optionen sind einzeln an- und abschaltbar (`RuleOptions`, `rule_schema()` liefert Texte/Gruppen/Defaults für die Oberfläche, `settings_from_dict()` nimmt das Einstellungsobjekt entgegen). Gewählt wird **vor Rundenbeginn**; Optionen und Deck-Variante bleiben während der Runde fest (sie stehen in `RoundState` und `GameState`). Defaults = **Spiel mit Dullen, Karlchen, Fuchsjagd**. Deck + Defaults = Profil `ddv_tsr_2026` (48 Karten) bzw. `house_no_nines` (40 Karten); jede andere Kombination heißt `custom`.
 
 | Option (Kennung) | Gruppe | Default | Wirkung | Modul | Tests |
 |---|---|---|---|---|---|
@@ -84,19 +84,7 @@ Annahmen zu den Optionen (bitte bestätigen):
 - Unzulässige Kombinationen (Unteroption ohne Hauptoption) werden abgelehnt (`invalid_option_combination`).
 - Die DDV-Konformität geht verloren, sobald eine Option vom Default abweicht (`profile.is_official_ddv`).
 
-## 2. Änderungen gegenüber dem früheren Stand der Engine
-
-| Punkt | früher | DDV/neu |
-|---|---|---|
-| Neunen | fehlten (10 Karten, ♦9 fehlt) | 48 Karten mit Neunen; ohne Neunen nur als Hausprofil |
-| Handgröße | 10 | 12 (DDV) |
-| Sonderpunkt „Karlchen gefangen“ | vorhanden | **nicht im DDV** → nur als Kneipenregel `karlchen_caught` (Default aus) |
-| Ansagefristen | anderes Modell | 11/10/9/8/7 Handkarten, Erwiderung, Hochzeitsverschiebung |
-| Verteilungsbedingungen (`Hand.isPlayable`) | Filter beim Geben | kein DDV-Bestandteil → Default fair (A2) |
-| Pflichtsolo/Vorführung/24 Spiele | nicht vorhanden | `round_rules.py` |
-| Hochzeit | vereinfacht | Klärungsstich 1–3, Karo-Solo, Fristverschiebung |
-
-## 3. Entscheidungen und Annahmen (bitte bestätigen)
+## 2. Entscheidungen und Annahmen (bitte bestätigen)
 
 - **A1 Ohne-Neunen-Profil:** Fristen um die zwei fehlenden Karten verschoben (Erstansage ≥ 9 von 10, danach 8/7/6/5); Schwellen 121/151/181/211 unverändert. Eine Kombination DDV-Profil + ohne Neunen wird abgelehnt (`validate_combination`).
 - **A2 Verteilung:** fair gemischt, keine Mindestqualität der Blätter. Ein Filter auf Mindestqualität wäre eine Hausregel und gehört nicht ins DDV-Profil.
@@ -105,6 +93,6 @@ Annahmen zu den Optionen (bitte bestätigen):
 - **A5 Erwiderung:** „notwendig war“ = Mindestkartenzahl der höchsten Gegenansage (nicht die tatsächlich gehaltene Kartenzahl).
 - **A6 Spielhistorie:** minimal: `GameState.log` (Ereignisse), `RoundState.results` (Ergebnis je Spiel). Umfang für Meilenstein 2 festlegen.
 
-## 4. Schnittstelle für Meilenstein 2
+## 3. Schnittstelle für Meilenstein 2
 
 `new_game(...)`, `apply_action(state, Declare|Resolve|Baptize|PlayCard|Announce, expected_version=, action_id=)` (transaktional, Versionsprüfung, Idempotenz), `legal_actions(state, seat)`, `player_view` / `bot_view` / `spectator_view`, `GameState.to_dict/from_dict`, `RoundState`, `next_setup`, `record_game`.

@@ -84,7 +84,7 @@ class Announce:
 
 @dataclass(frozen=True)
 class DeclareSchweinchen:
-    """Kneipenregel: Karo-Asse (beide auf der Hand) zu hoechsten Truempfen erklaeren."""
+    """Schweinchen: Karo-Asse (beide auf der Hand) zu hoechsten Truempfen erklaeren."""
     seat: int
 
 
@@ -560,7 +560,7 @@ def _bock_triggers(state: GameState) -> list[str]:
 
 
 def can_declare_schweinchen(state: GameState, seat: int) -> bool:
-    """Kneipenregel Schweinchen: beide Karo-Asse auf der Hand, noch keine Karte gespielt, Karo-Ass ist Trumpf."""
+    """Schweinchen: beide Karo-Asse auf der Hand, noch keine Karte gespielt, Karo-Ass ist Trumpf."""
     return (state.options.schweinchen and state.phase is Phase.PLAYING and state.schweinchen_seat is None
             and len(state.hands[seat]) == state.profile.hand_size
             and sum(c.face == _FOX for c in state.hands[seat]) == 2

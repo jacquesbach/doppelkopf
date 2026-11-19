@@ -172,34 +172,54 @@
     .stat.cards {
       display: none;
     }
-    .fan {
-      --back-w: 16px;
+    /* Überall am Handy gleich: Symbole statt ausgeschriebener Wörter */
+    .full {
+      display: none;
+    }
+    .short {
+      display: inline-flex;
+    }
+    .sr {
+      display: block;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+    .stat {
+      position: relative;
+    }
+    /* Gegner: drei gleich große Kacheln – der Kartenfächer füllt die Kachelbreite aus (alle 12 Karten passen genau) */
+    .p-top,
+    .p-left,
+    .p-right {
       display: flex;
-      margin-top: 4px;
+      flex-direction: column;
+      height: 100%;
+    }
+    .p-top .name,
+    .p-left .name,
+    .p-right .name {
+      flex-wrap: wrap;
+      gap: 0 6px;
+    }
+    .p-top .meta,
+    .p-left .meta,
+    .p-right .meta {
+      flex-direction: row;
+      justify-content: flex-start;
+    }
+    .fan {
+      --back-w: min(34px, calc(100cqw / 3.45));
+      display: flex;
+      justify-content: center;
+      margin-top: auto;
+      padding-top: 4px;
     }
     .fan > :global(* + *) {
       margin-left: calc(var(--back-w) * -0.78);
-    }
-    .p-top .fan {
-      --back-w: 28px;
-      justify-content: center;
-    }
-    /* Oben: Name und Stiche in einer Zeile, darunter der Fächer */
-    .p-top {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      column-gap: 8px;
-    }
-    .p-top .tags {
-      grid-column: 1;
-    }
-    .p-top .meta {
-      grid-row: 1;
-      grid-column: 2;
-    }
-    .p-top .fan {
-      grid-column: 1 / -1;
     }
     /* Eigener Platz: schmale Leiste über der Hand */
     .p-bottom {

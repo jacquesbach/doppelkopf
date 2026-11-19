@@ -533,18 +533,23 @@
       font-size: 0.82rem;
       min-height: 1.3em;
     }
+    /* Drei gleich große Gegner-Kacheln oben (links · gegenüber · rechts), darunter der Tisch über die volle Breite */
     .table {
       flex: 1;
-      grid-template-columns: 70px minmax(0, 1fr) 70px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        "left top right"
+        "mid mid mid"
+        "me me me";
       grid-template-rows: auto 1fr auto;
       gap: 6px;
     }
-    .top {
-      width: 100%;
-    }
+    .top,
     .left,
     .right {
-      align-self: start;
+      width: 100%;
+      justify-self: stretch;
+      align-self: stretch;
     }
     .mid {
       min-height: 0;
@@ -556,7 +561,7 @@
     }
     .trick {
       /* Stichkarten: so groß, wie die Mitte es zulässt */
-      --card-w: min(70px, calc((100vw - 12px - 140px - 16px - 28px) / 3));
+      --card-w: min(76px, calc((100vw - 44px) / 3));
       gap: 2px 6px;
       padding: 2px;
     }

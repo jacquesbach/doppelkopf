@@ -114,6 +114,10 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+    align-items: start; /* jede Tabelle behält ihre natürliche Höhe: gleiche Zeilenhöhe links und rechts */
+  }
+  .cols .nx-table td {
+    vertical-align: middle;
   }
   .deltas {
     display: flex;

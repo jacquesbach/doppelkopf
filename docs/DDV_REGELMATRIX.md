@@ -53,25 +53,25 @@ Status: ✅ umgesetzt und getestet · 🟡 umgesetzt mit Annahme/Auslegung (sieh
 | 8.5 (Zeit) | Spielzeitbegrenzung, Streichen offener Spiele | – | – | ⏭ |
 | 9 | Regelverstöße, Strafpunkte, Reklamation | – | – | ⛔ Server lässt Verstöße nicht zu; Strafpunkte nicht umgesetzt |
 
-## 1b. Optionale Regeln (Hausregeln / Kneipenregeln)
+## 1b. Optionale Regeln (gängige Varianten / Hausregeln)
 
 Alle Optionen sind einzeln an- und abschaltbar (`RuleOptions`, `rule_schema()` liefert Texte/Gruppen/Defaults für die Oberfläche, `settings_from_dict()` nimmt das Einstellungsobjekt entgegen). Gewählt wird **vor Rundenbeginn**; Optionen und Deck-Variante bleiben während der Runde fest (sie stehen in `RoundState` und `GameState`). Defaults = nur die Regeln mit rotem Haken im Original: **Spiel mit Dullen, Karlchen, Fuchsjagd**. Deck + Defaults = Profil `ddv_tsr_2026` (48 Karten) bzw. `house_no_nines` (40 Karten); jede andere Kombination heißt `custom`.
 
 | Option (Kennung) | Gruppe | Default | Wirkung | Modul | Tests |
 |---|---|---|---|---|---|
-| Spiel mit Dullen (`dulle`) | beliebt | **an** | ♥10 höchster Trumpf; aus: ♥10 ist normale Herz-Karte (Reihenfolge A,10,K,9, kein Trumpf) | `trump.py` | `DulleTests` |
-| Scharfer Doppelkopf (`sharp_doppelkopf`) | beliebt | aus | Deck ohne Neunen, 10 Karten (= `DeckVariant`, keine `RuleOptions`-Option) | `options.py`, `profile.py` | `test_settings_mapping…` |
-| Karlchen (`karlchen`) | beliebt | **an** | Sonderpunkt: letzten Stich mit ♣-Bube gewinnen | `scoring.py` | `SpecialPointOptionTests` |
-| Fuchsjagd (`fuchsjagd`) | beliebt | **an** | Sonderpunkt: gegnerisches ♦-Ass fangen | `scoring.py` | `SpecialPointOptionTests` |
-| Pflichtansagen (`mandatory_announcements`) | beliebt | aus | Gewinner des 1. Stichs muss Re/Kontra ansagen, bevor er weiterspielt (nur Normalspiel) | `game.py` | `MandatoryAnnouncementTests` |
-| Solo spielt aus (`solo_leads`) | beliebt | aus | Solist eröffnet auch im Lustsolo (Pflichtsolo spielt nach TSR 4.2.2 ohnehin aus) | `game.py` | `SoloLeadsTests` |
-| Karlchen fangen (`karlchen_caught`) | Kneipe | aus | Sonderpunkt für gegnerischen ♣-Buben im letzten Stich  | `scoring.py` | `test_karlchen_caught…` |
-| Schweinchen (`schweinchen`) | Kneipe | aus | Wer beide ♦-Asse hält, kann sie per Aktion `DeclareSchweinchen` zu höchsten Trümpfen erklären | `trump.py`, `game.py` | `SchweinchenTests` |
-| Bockrunde bei Herzstich (`bock_heart_trick`) | Kneipe | aus | Stich aus 4 Herz-Fehlkarten → nächste 4 Spiele ×2 | `game.py`, `round_rules.py` | `BockTests` |
-| Bockrunde bei Nullspiel (`bock_zero_game`) | Kneipe | aus | Spiel endet mit 0 Punkten → nächste 4 Spiele ×2 | dto. | `BockTests` |
-| Bockrunde bei 120 Punkten (`bock_120`) | Kneipe | aus | beide Parteien genau 120 Augen → nächste 4 Spiele ×2 | dto. | `BockTests` |
-| Zweite Dulle sticht die erste (`second_dulle_wins`) | Kneipe | aus | Beide Dullen im selben Stich: die zweite gewinnt (setzt `dulle` voraus) | `tricks.py` | `SecondDulleTests` |
-| … außer im letzten Stich (`second_dulle_wins_except_last`) | Kneipe | aus | Im letzten Stich gewinnt die erste Dulle (setzt `second_dulle_wins` voraus) | `game.py` | `SecondDulleTests` |
+| Dulle als Höchsttrumpf (`dulle`) | gängig | **an** | ♥10 höchster Trumpf; aus: ♥10 ist normale Herz-Karte (Reihenfolge A,10,K,9, kein Trumpf) | `trump.py` | `DulleTests` |
+| Ohne Neunen (`sharp_doppelkopf`) | gängig | aus | Deck ohne Neunen, 10 Karten (= `DeckVariant`, keine `RuleOptions`-Option) | `options.py`, `profile.py` | `test_settings_mapping…` |
+| Karlchen-Punkt (`karlchen`) | gängig | **an** | Sonderpunkt: letzten Stich mit ♣-Bube gewinnen | `scoring.py` | `SpecialPointOptionTests` |
+| Füchse jagen (`fuchsjagd`) | gängig | **an** | Sonderpunkt: gegnerisches ♦-Ass fangen | `scoring.py` | `SpecialPointOptionTests` |
+| Ansagepflicht nach dem ersten Stich (`mandatory_announcements`) | gängig | aus | Gewinner des 1. Stichs muss Re/Kontra ansagen, bevor er weiterspielt (nur Normalspiel) | `game.py` | `MandatoryAnnouncementTests` |
+| Solist kommt raus (`solo_leads`) | gängig | aus | Solist eröffnet auch im Lustsolo (Pflichtsolo spielt nach TSR 4.2.2 ohnehin aus) | `game.py` | `SoloLeadsTests` |
+| Gegnerisches Karlchen abfangen (`karlchen_caught`) | Hausregel | aus | Sonderpunkt für gegnerischen ♣-Buben im letzten Stich  | `scoring.py` | `test_karlchen_caught…` |
+| Schweinchen (`schweinchen`) | Hausregel | aus | Wer beide ♦-Asse hält, kann sie per Aktion `DeclareSchweinchen` zu höchsten Trümpfen erklären | `trump.py`, `game.py` | `SchweinchenTests` |
+| Bock nach Herz-Stich (`bock_heart_trick`) | Hausregel | aus | Stich aus 4 Herz-Fehlkarten → nächste 4 Spiele ×2 | `game.py`, `round_rules.py` | `BockTests` |
+| Bock nach Nullspiel (`bock_zero_game`) | Hausregel | aus | Spiel endet mit 0 Punkten → nächste 4 Spiele ×2 | dto. | `BockTests` |
+| Bock bei 120 zu 120 (`bock_120`) | Hausregel | aus | beide Parteien genau 120 Augen → nächste 4 Spiele ×2 | dto. | `BockTests` |
+| Zweite Dulle schlägt die erste (`second_dulle_wins`) | Hausregel | aus | Beide Dullen im selben Stich: die zweite gewinnt (setzt `dulle` voraus) | `tricks.py` | `SecondDulleTests` |
+| Ausnahme im letzten Stich (`second_dulle_wins_except_last`) | Hausregel | aus | Im letzten Stich gewinnt die erste Dulle (setzt `second_dulle_wins` voraus) | `game.py` | `SecondDulleTests` |
 
 Annahmen zu den Optionen (bitte bestätigen):
 - **B1 Dulle aus:** ♥10 ist eine normale Herz-Karte (Fehlkarte bzw. Teil der Trumpffarbe im Herz-Solo).

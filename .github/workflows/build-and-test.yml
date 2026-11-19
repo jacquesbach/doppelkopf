@@ -58,3 +58,14 @@ jobs:
           docker compose config --quiet
       - name: Images bauen
         run: docker compose build
+      - name: Stack starten und Seiten prüfen
+        # Startet Backend und nginx wirklich und prüft Seiten, 404-Status, noindex, robots.txt, sitemap.xml, Cache und gzip.
+        run: |
+          docker compose up -d --build --wait --wait-timeout 240
+          bash scripts/smoke-test.sh http://127.0.0.1:8080
+      - name: Protokolle bei Fehler
+        if: failure()
+        run: docker compose logs --tail=80
+      - name: Aufräumen
+        if: always()
+        run: docker compose down -v

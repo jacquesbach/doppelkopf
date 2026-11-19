@@ -1,4 +1,4 @@
-"""Optionale Regeln (Beliebte Regeln + Kneipenregeln): Defaults, Schema, Wirkung jeder einzelnen Option."""
+"""Optionale Regeln (gängige Varianten + Hausregeln): Defaults, Schema, Wirkung jeder einzelnen Option."""
 import json
 import random
 import unittest

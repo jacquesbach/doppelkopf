@@ -2,6 +2,8 @@
   import Logo from "../components/ui/Logo.svelte";
   import PublicTables from "../components/ui/PublicTables.svelte";
   import SuggestionsModal from "../components/community/SuggestionsModal.svelte";
+  import GithubLink from "../components/ui/GithubLink.svelte";
+  import { FAQ, FAQ_TITLE } from "../content/home.js";
   import { link } from "../lib/nav.svelte.js";
 
   let suggestionsOpen = $state(false);
@@ -18,6 +20,7 @@
 
       <nav class="nb-nav" aria-label="Hauptnavigation">
         <a href="#modes" class="nb-nav-link">Modi</a>
+        <a href="/regeln" use:link class="nb-nav-link">Regeln</a>
       <a href="/beitreten" use:link class="nb-nav-link">Beitreten</a>
         <a href="/neu" use:link class="nb-btn nb-btn-sm nb-bg-yellow">Jetzt spielen</a>
       </nav>
@@ -272,6 +275,26 @@
         </div>
       </div>
     </section>
+    <!-- Häufige Fragen (Text aus src/content/home.js, steht beim Build auch im statischen HTML) -->
+    <section class="nb-section nb-section-alt" id="faq">
+      <div class="nb-container">
+        <div class="nb-section-head">
+          <span class="nb-badge nb-bg-lavender">FAQ</span>
+          <h2 class="nb-h2">{FAQ_TITLE}</h2>
+        </div>
+        <div class="nb-faq">
+          {#each FAQ as item}
+            <details class="nb-faq-item">
+              <summary>{item.q}</summary>
+              <p>{item.a}</p>
+            </details>
+          {/each}
+        </div>
+        <p class="nb-faq-more">
+          Alle Regeln im Überblick: <a href="/regeln" use:link>Doppelkopf-Regeln einfach erklärt</a>
+        </p>
+      </div>
+    </section>
   </main>
 
   {#if suggestionsOpen}
@@ -283,9 +306,11 @@
     <div class="nb-container nb-footer-inner">
       <p class="nb-mono-tag">DOPPELKOPF.CC</p>
       <div class="nb-footer-links">
+        <a href="/regeln" use:link>Spielregeln</a>
         <a href="/impressum" use:link>Impressum</a>
         <a href="/datenschutz" use:link>Datenschutz</a>
         <a href="https://www.doko-verband.de/" target="_blank" rel="noopener noreferrer">Turnierregeln</a>
+        <GithubLink />
       </div>
     </div>
   </footer>
@@ -687,7 +712,9 @@
 
 .nb-footer-links {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
 }
 
 .nb-footer-links a {
@@ -760,6 +787,58 @@
   .nb-strip-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Häufige Fragen */
+.nb-faq {
+  display: grid;
+  gap: 16px;
+  max-width: 820px;
+}
+
+.nb-faq-item {
+  border: var(--nb-border);
+  box-shadow: var(--nb-shadow-sm);
+  background-color: var(--nb-bg);
+}
+
+.nb-faq-item summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.nb-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.nb-faq-item summary::after {
+  content: "+";
+  font-family: var(--font-mono);
+}
+
+.nb-faq-item[open] summary::after {
+  content: "–";
+}
+
+.nb-faq-item p {
+  margin: 0;
+  padding: 0 18px 16px;
+}
+
+.nb-faq-more {
+  margin: 24px 0 0;
+}
+
+.nb-faq-more a {
+  color: var(--nb-ink);
+  font-weight: 700;
 }
 
 /* Verbesserungsvorschläge */

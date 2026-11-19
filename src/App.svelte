@@ -7,8 +7,16 @@
   import Legal from "./pages/Legal.svelte";
   import Admin from "./pages/Admin.svelte";
   import NotFound from "./pages/NotFound.svelte";
+  import Rules from "./pages/Rules.svelte";
+  import { applySeo } from "./lib/seo.js";
+  import { SITE_URL } from "./lib/site.js";
 
   const route = $derived(nav.route);
+
+  // Titel, Beschreibung, robots und kanonische Adresse folgen jedem Seitenwechsel (Single-Page-App).
+  $effect(() => {
+    applySeo({ name: route.name, page: route.page }, SITE_URL);
+  });
 </script>
 
 {#if route.name === "landing"}
@@ -21,6 +29,8 @@
   {#key route.code}<TablePage code={route.code} />{/key}
 {:else if route.name === "legal"}
   <Legal page={route.page} />
+{:else if route.name === "rules"}
+  <Rules />
 {:else if route.name === "admin"}
   <Admin />
 {:else}

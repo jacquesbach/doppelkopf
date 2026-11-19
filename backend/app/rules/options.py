@@ -70,37 +70,37 @@ class OptionSpec:
 
 
 OPTION_SPECS: tuple[OptionSpec, ...] = (
-    OptionSpec("dulle", "dulle", "popular", True, "Spiel mit Dullen",
-               "Die Herz Zehn (Dulle) ist der höchste Trumpf im Spiel."),
-    OptionSpec("sharp_doppelkopf", None, "popular", False, "Scharfer Doppelkopf",
-               "Es gibt keine Neunen im Spiel. Jeder Spieler erhält nur 10 Karten."),
-    OptionSpec("karlchen", "karlchen", "popular", True, "Karlchen",
-               "Du kriegst einen Sonderpunkt, wenn du den letzten Stich mit dem Kreuz Buben (Karlchen) gewinnst."),
-    OptionSpec("fuchsjagd", "fuchsjagd", "popular", True, "Fuchsjagd",
-               "Du kriegst einen Sonderpunkt, wenn du ein Karo Ass (Fuchs) eines Gegners in einem Stich gewinnst."),
-    OptionSpec("mandatory_announcements", "mandatory_announcements", "popular", False, "Pflichtansagen",
-               "Wer den ersten Stich gewinnt, muss 'Re' oder 'Kontra' ansagen (nur im Normalspiel)."),
-    OptionSpec("solo_leads", "solo_leads", "popular", False, "Solo spielt aus",
-               "Ein Solo-Spieler eröffnet immer den ersten Stich."),
-    OptionSpec("karlchen_caught", "karlchen_caught", "pub", False, "Karlchen fangen",
-               "Du kriegst einen Sonderpunkt, wenn du den Kreuz Buben (Karlchen) eines Gegners im letzten Stich fängst."),
+    OptionSpec("dulle", "dulle", "popular", True, "Dulle als Höchsttrumpf",
+               "Die Herz-Zehn („Dulle“) steht über allen anderen Trümpfen. Ausgeschaltet ist sie eine gewöhnliche Herz-Karte."),
+    OptionSpec("sharp_doppelkopf", None, "popular", False, "Ohne Neunen (40 Karten)",
+               "Die Neunen werden aussortiert. Jede Person bekommt 10 Karten, das Spiel dauert 10 Stiche."),
+    OptionSpec("karlchen", "karlchen", "popular", True, "Karlchen-Punkt",
+               "Wer den letzten Stich mit dem Kreuz-Buben („Karlchen“) gewinnt, holt für seine Partei einen Extrapunkt."),
+    OptionSpec("fuchsjagd", "fuchsjagd", "popular", True, "Füchse jagen",
+               "Extrapunkt für die Partei, die in einem Stich ein Karo-Ass („Fuchs“) der Gegenpartei einsammelt."),
+    OptionSpec("mandatory_announcements", "mandatory_announcements", "popular", False, "Ansagepflicht nach dem ersten Stich",
+               "Wer den ersten Stich holt, muss danach „Re“ oder „Kontra“ ansagen, bevor es weitergeht. Gilt nur im Normalspiel."),
+    OptionSpec("solo_leads", "solo_leads", "popular", False, "Solist kommt raus",
+               "Wer ein Solo spielt, legt auch dann die erste Karte aus, wenn er nicht links vom Geber sitzt."),
+    OptionSpec("karlchen_caught", "karlchen_caught", "pub", False, "Gegnerisches Karlchen abfangen",
+               "Extrapunkt, wenn im letzten Stich der Kreuz-Bube der Gegenpartei in den Stich deiner Partei fällt."),
     OptionSpec("schweinchen", "schweinchen", "pub", False, "Schweinchen",
-               "Ein Spieler mit Schweinchen (2x Karo Ass auf der Hand) kann die Karo Asse zu den höchsten Trümpfe im Spiel erklären."),
-    OptionSpec("bock_heart_trick", "bock_heart_trick", "pub", False, "Bockrunde bei Herzstich",
-               "Wenn ein Stich mit 4 Herz Fehlkarten läuft, werden die Punkte in den nächsten 4 Spielen verdoppelt (Bockrunde)."),
-    OptionSpec("bock_zero_game", "bock_zero_game", "pub", False, "Bockrunde bei Nullspiel",
-               "Wenn ein Spiel mit 0 Punkten endet, werden die Punkte in den nächsten 4 Spielen verdoppelt (Bockrunde)."),
-    OptionSpec("bock_120", "bock_120", "pub", False, "Bockrunde bei 120 Punkten",
-               "Wenn beide Parteien 120 Augen gewinnen, werden die Punkte in den nächsten 4 Spielen verdoppelt (Bockrunde)."),
-    OptionSpec("second_dulle_wins", "second_dulle_wins", "pub", False, "Zweite Dulle sticht die erste Dulle",
-               "Werden beide Dullen im selben Stich gespielt, sticht die zweite Dulle die erste.", requires="dulle"),
-    OptionSpec("second_dulle_wins_except_last", "second_dulle_wins_except_last", "pub", False, "... außer im letzten Stich",
-               "Wenn beide Dullen im letzten Stich gespielt werden, gewinnt die erste Dulle.", requires="second_dulle_wins"),
+               "Wer beide Karo-Asse auf der Hand hält, darf sie vor der ersten Karte zu den höchsten Trümpfen erklären."),
+    OptionSpec("bock_heart_trick", "bock_heart_trick", "pub", False, "Bock nach Herz-Stich",
+               "Besteht ein Stich ausschließlich aus Herz-Fehlkarten, zählen die nächsten vier Spiele doppelt (Bockrunde)."),
+    OptionSpec("bock_zero_game", "bock_zero_game", "pub", False, "Bock nach Nullspiel",
+               "Endet ein Spiel ohne jede Punktänderung (0 Punkte), zählen die nächsten vier Spiele doppelt (Bockrunde)."),
+    OptionSpec("bock_120", "bock_120", "pub", False, "Bock bei 120 zu 120",
+               "Erreichen beide Parteien genau 120 Augen, zählen die nächsten vier Spiele doppelt (Bockrunde)."),
+    OptionSpec("second_dulle_wins", "second_dulle_wins", "pub", False, "Zweite Dulle schlägt die erste",
+               "Fallen beide Dullen in denselben Stich, gewinnt ihn die später gespielte.", requires="dulle"),
+    OptionSpec("second_dulle_wins_except_last", "second_dulle_wins_except_last", "pub", False, "Ausnahme im letzten Stich",
+               "Im allerletzten Stich gilt die Ausnahme: Dort gewinnt die zuerst gespielte Dulle.", requires="second_dulle_wins"),
 )
 
 
 def rule_schema() -> list[dict]:
-    """Beschreibung aller Optionen fuer die Einstellungsseite (Reihenfolge wie im Original)."""
+    """Beschreibung aller Optionen fuer die Einstellungsseite (Reihenfolge wie in der Tabelle oben)."""
     return [{"id": s.id, "group": s.group, "default": s.default, "label": s.label,
              "description": s.description, "requires": s.requires} for s in OPTION_SPECS]
 

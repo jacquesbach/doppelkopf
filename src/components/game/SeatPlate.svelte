@@ -3,7 +3,8 @@
   import CardBack from "../cards/CardBack.svelte";
 
   // Namensschild eines Sitzes mit Marken, Ansage, Stichzahl und (bei Gegnern) Kartenrücken.
-  let { view, seat, acting = false, announcement = null, showBacks = true } = $props();
+  // `place`: Lage am Tisch (top | left | right | bottom); am Handy bestimmt sie die Größe des Kartenfächers.
+  let { view, seat, acting = false, announcement = null, showBacks = true, place = "bottom" } = $props();
 
   const badges = $derived(seatBadges(view, seat));
   const count = $derived(view.game.handCounts?.[seat] ?? 0);
@@ -11,7 +12,11 @@
   const bot = $derived(view.table.seats[seat]?.isBot);
 </script>
 
-<div class="plate" class:acting aria-label={`Platz ${seat + 1}: ${seatName(view, seat)}`}>
+<div
+  class="plate p-{place}"
+  class:acting
+  aria-label={`Platz ${seat + 1}: ${seatName(view, seat)}, ${count} Karten, ${tricks} ${tricks === 1 ? "Stich" : "Stiche"}`}
+>
   <div class="name">
     <span class="n">{seatName(view, seat)}</span>
     {#if bot}<span class="tag">BOT</span>{/if}
@@ -22,7 +27,7 @@
   </div>
   <!-- Breit: ausgeschrieben („12 Karten“). Schmal (Mobil, seitliche Plätze): Symbol + Zahl, damit nichts aus dem Kasten ragt. -->
   <div class="meta">
-    <span class="stat" title="{count} Karten">
+    <span class="stat cards" title="{count} Karten">
       <span class="full">{count} Karten</span>
       <span class="short" aria-hidden="true">
         <svg viewBox="0 0 14 14" width="14" height="14" focusable="false"><rect x="3" y="1.5" width="8" height="11" fill="#fff" stroke="#000" stroke-width="1.6" /></svg>
@@ -45,6 +50,10 @@
   {#if showBacks && count > 0}
     <div class="backs" aria-hidden="true">
       {#each Array(Math.min(count, 5)) as _, i (i)}<CardBack />{/each}
+    </div>
+    <!-- Handy: kleiner Fächer mit allen Karten des Mitspielers (zeigt die Kartenzahl auf einen Blick) -->
+    <div class="fan" aria-hidden="true">
+      {#each Array(Math.min(count, 12)) as _, i (i)}<CardBack />{/each}
     </div>
   {/if}
 </div>
@@ -128,12 +137,84 @@
   .backs > :global(* + *) {
     margin-left: -14px;
   }
+  .fan {
+    display: none;
+  }
   @media (max-width: 640px) {
     .backs {
       display: none;
     }
     .plate {
-      padding: 6px 7px;
+      padding: 4px 5px;
+      border-width: 2px;
+      box-shadow: 2px 2px 0 0 #000;
+    }
+    .plate.acting {
+      box-shadow: 3px 3px 0 0 #000;
+    }
+    .name {
+      font-size: 0.82rem;
+      line-height: 1.25;
+    }
+    .tags {
+      margin: 2px 0;
+      min-height: 0;
+    }
+    .tag {
+      font-size: 0.6rem;
+      padding: 0 3px;
+      border-width: 1.5px;
+    }
+    .tags:empty {
+      display: none;
+    }
+    /* Kartenzahl zeigt der Fächer; der Platz-Name trägt sie zusätzlich im aria-label. */
+    .stat.cards {
+      display: none;
+    }
+    .fan {
+      --back-w: 16px;
+      display: flex;
+      margin-top: 4px;
+    }
+    .fan > :global(* + *) {
+      margin-left: calc(var(--back-w) * -0.78);
+    }
+    .p-top .fan {
+      --back-w: 28px;
+      justify-content: center;
+    }
+    /* Oben: Name und Stiche in einer Zeile, darunter der Fächer */
+    .p-top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      column-gap: 8px;
+    }
+    .p-top .tags {
+      grid-column: 1;
+    }
+    .p-top .meta {
+      grid-row: 1;
+      grid-column: 2;
+    }
+    .p-top .fan {
+      grid-column: 1 / -1;
+    }
+    /* Eigener Platz: schmale Leiste über der Hand */
+    .p-bottom {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 2px 8px;
+      width: 100%;
+    }
+    .p-bottom .tags {
+      margin: 0;
+    }
+    .p-bottom .meta {
+      gap: 8px;
     }
   }
   /* Schmaler Kasten (seitliche Plätze auf dem Handy): Symbol + Zahl untereinander statt ausgeschriebenem Text */

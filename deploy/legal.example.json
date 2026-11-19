@@ -1,0 +1,12 @@
+{
+  "name": "Max Mustermann",
+  "street": "Musterstraße 1",
+  "city": "12345 Musterstadt",
+  "country": "Deutschland",
+  "email": "kontakt@example.com",
+  "phone": "+49 123 4567890",
+  "vatId": "",
+  "hostingProvider": "Oracle Cloud Infrastructure",
+  "hostingRegion": "Frankfurt am Main, Deutschland",
+  "registrar": "GoDaddy"
+}

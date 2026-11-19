@@ -9,6 +9,7 @@ export function matchRoute(pathname) {
   m = /^\/tisch\/([A-Za-z0-9]{3,12})$/.exec(path);
   if (m) return { name: "table", code: m[1].toUpperCase() };
   if (path === "/admin") return { name: "admin" };
+  if (path === "/regeln") return { name: "rules" };
   if (path === "/impressum") return { name: "legal", page: "impressum" };
   if (path === "/datenschutz") return { name: "legal", page: "datenschutz" };
   return { name: "notfound" };
@@ -21,6 +22,7 @@ export function buildPath(name, params = {}) {
     case "join": return params.code ? `/beitreten/${params.code}` : "/beitreten";
     case "table": return `/tisch/${params.code}`;
     case "legal": return `/${params.page}`;
+    case "rules": return "/regeln";
     case "admin": return "/admin";
     default: return "/";
   }

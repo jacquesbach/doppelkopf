@@ -3,8 +3,8 @@
   let { schema, settings = $bindable(), disabled = false } = $props();
 
   const GROUPS = [
-    { id: "popular", title: "Beliebte Regeln" },
-    { id: "pub", title: "Kneipenregeln" },
+    { id: "popular", title: "Gängige Varianten" },
+    { id: "pub", title: "Hausregeln" },
   ];
 
   const blocked = (spec) => !!spec.requires && !settings[spec.requires];

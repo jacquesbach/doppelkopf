@@ -44,6 +44,9 @@ test("Router: Pfade erkennen und bauen", () => {
   assert.deepEqual(matchRoute("/neu/"), { name: "create" });
   assert.deepEqual(matchRoute("/beitreten/ab12"), { name: "join", code: "AB12" });
   assert.deepEqual(matchRoute("/tisch/XYZ9"), { name: "table", code: "XYZ9" });
+  assert.deepEqual(matchRoute("/regeln"), { name: "rules" });
+  assert.deepEqual(matchRoute("/regeln/"), { name: "rules" });
+  assert.equal(buildPath("rules"), "/regeln");
   assert.deepEqual(matchRoute("/impressum"), { name: "legal", page: "impressum" });
   assert.equal(matchRoute("/gibtsnicht").name, "notfound");
   assert.equal(buildPath("table", { code: "AB12" }), "/tisch/AB12");

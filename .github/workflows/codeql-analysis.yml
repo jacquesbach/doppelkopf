@@ -8,6 +8,7 @@ on:
   schedule:
     - cron: "0 5 * * 1"
 
+# In privaten Repositories braucht CodeQL zusätzlich "actions: read" (Abfrage des laufenden Workflows beim Hochladen der Ergebnisse).
 permissions:
   actions: read
   contents: read

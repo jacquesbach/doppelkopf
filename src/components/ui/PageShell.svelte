@@ -1,6 +1,7 @@
 <script>
   import { link } from "../../lib/nav.svelte.js";
   import Logo from "./Logo.svelte";
+  import GithubLink from "./GithubLink.svelte";
 
   let { children, narrow = false } = $props();
 </script>
@@ -26,8 +27,10 @@
     <div class="nx-container nx-footer-inner">
       <p class="nx-mono">DOPPELKOPF.CC</p>
       <div>
+        <a href="/regeln" use:link>Regeln</a>
         <a href="/impressum" use:link>Impressum</a>
         <a href="/datenschutz" use:link>Datenschutz</a>
+        <GithubLink />
       </div>
     </div>
   </footer>

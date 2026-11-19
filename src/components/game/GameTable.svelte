@@ -50,6 +50,11 @@
   const bock = $derived(view.table.round.bockRemaining ?? 0);
 
   let info = $state(null); // null | "stand" | "last" | "tricks" | "history" | "chat" | "leave"
+  let menuOpen = $state(false); // nur Handy: Menü mit den selteneren Knöpfen
+  const openInfo = (kind) => {
+    menuOpen = false;
+    info = kind;
+  };
   // Ergebnis ist ausgeblendet, wenn es für DIESES Spiel weggeklickt wurde (neues Spiel → wieder sichtbar).
   // Bewusst kein $effect: Er würde bei jeder neuen Server-Sicht (auch beim Nachladen) das Ergebnis wieder öffnen.
   const gameNumber = $derived(view.table.gameNumber);
@@ -86,19 +91,27 @@
         {#if me === null}<span class="nx-badge nx-bg-lavender">ZUSCHAUER</span>{/if}
         {#if store.connection === "offline"}<span class="nx-badge nx-bg-coral">OFFLINE</span>{/if}
       </div>
-      <div class="tools">
-        <button type="button" class="nx-btn nx-btn-sm nx-bg-white" onclick={() => (info = "stand")}>STAND</button>
+      <div class="tools" class:open={menuOpen}>
+        <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("stand")}>STAND</button>
         {#if finished}
-          <button type="button" class="nx-btn nx-btn-sm nx-bg-white" onclick={() => (info = "tricks")}>STICHE</button>
+          <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("tricks")}>STICHE</button>
         {:else}
-          <button type="button" class="nx-btn nx-btn-sm nx-bg-white" onclick={() => (info = "last")} disabled={!game.lastTrick}>LETZTER STICH</button>
+          <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("last")} disabled={!game.lastTrick}>LETZTER STICH</button>
         {/if}
-        <button type="button" class="nx-btn nx-btn-sm nx-bg-white" onclick={() => (info = "history")}>PROTOKOLL</button>
-        <button type="button" class="nx-btn nx-btn-sm nx-bg-blue" onclick={() => (info = "chat")}>
+        <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("history")}>PROTOKOLL</button>
+        <button type="button" class="nx-btn nx-btn-sm nx-bg-blue chat" onclick={() => openInfo("chat")}>
           CHAT{#if store.unread > 0}<span class="unread" aria-label="{store.unread} ungelesen">{store.unread}</span>{/if}
         </button>
-        <button type="button" class="nx-btn nx-btn-sm nx-bg-coral" onclick={() => (info = "leave")}>VERLASSEN</button>
+        <button type="button" class="nx-btn nx-btn-sm nx-bg-coral sec" onclick={() => openInfo("leave")}>VERLASSEN</button>
       </div>
+      <button
+        type="button"
+        class="nx-btn nx-btn-sm nx-bg-white menu-toggle"
+        aria-expanded={menuOpen}
+        onclick={() => (menuOpen = !menuOpen)}
+      >
+        MENÜ <span aria-hidden="true">{menuOpen ? "▴" : "▾"}</span>
+      </button>
     </div>
   </header>
 
@@ -114,13 +127,13 @@
 
     <div class="table">
       <div class="top">
-        <SeatPlate {view} seat={seatAt("top")} acting={acting === seatAt("top")} announcement={says[seatAt("top")]} />
+        <SeatPlate {view} place="top" seat={seatAt("top")} acting={acting === seatAt("top")} announcement={says[seatAt("top")]} />
       </div>
       <div class="left">
-        <SeatPlate {view} seat={seatAt("left")} acting={acting === seatAt("left")} announcement={says[seatAt("left")]} />
+        <SeatPlate {view} place="left" seat={seatAt("left")} acting={acting === seatAt("left")} announcement={says[seatAt("left")]} />
       </div>
       <div class="right">
-        <SeatPlate {view} seat={seatAt("right")} acting={acting === seatAt("right")} announcement={says[seatAt("right")]} />
+        <SeatPlate {view} place="right" seat={seatAt("right")} acting={acting === seatAt("right")} announcement={says[seatAt("right")]} />
       </div>
 
       <div class="mid">
@@ -168,6 +181,7 @@
       <div class="me">
         <SeatPlate
           {view}
+          place="bottom"
           seat={seatAt("bottom")}
           acting={acting === seatAt("bottom")}
           announcement={says[seatAt("bottom")]}
@@ -243,6 +257,9 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .menu-toggle {
+    display: none;
   }
   .unread {
     display: inline-block;
@@ -386,13 +403,91 @@
     aspect-ratio: 5 / 7;
     border: 2px dashed rgba(0, 0, 0, 0.35);
   }
+  /* ---------- Handy: Aufbau wie bei den bekannten Online-Tischen – schlanker Kopf, großer Tisch, große Hand unten ---------- */
   @media (max-width: 640px) {
     .hide-sm {
       display: none;
     }
+    .game {
+      /* Hand: 12 Karten passen mit gut der Hälfte Überlappung genau in die Breite */
+      --card-w: min(78px, calc((100vw - 12px) / 6.1));
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    .bar {
+      padding: 6px 10px;
+      gap: 6px 8px;
+      min-height: 0;
+    }
+    .head-mid {
+      flex: 1;
+      min-width: 0;
+      gap: 6px;
+    }
+    .head-mid :global(.nx-badge) {
+      font-size: 0.66rem;
+      padding: 2px 6px;
+      box-shadow: 2px 2px 0 0 #000;
+    }
+    .tools {
+      display: contents;
+    }
+    .sec {
+      display: none;
+      order: 5;
+      flex: 1 1 calc(50% - 8px);
+    }
+    .tools.open .sec {
+      display: inline-block;
+    }
+    .menu-toggle {
+      display: inline-block;
+    }
+    .stage {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 6px 8px;
+    }
+    .status {
+      margin: 0 0 6px;
+      font-size: 0.82rem;
+      min-height: 1.3em;
+    }
     .table {
-      grid-template-columns: minmax(78px, 1fr) minmax(0, 2.2fr) minmax(78px, 1fr);
-      gap: 8px;
+      flex: 1;
+      grid-template-columns: 70px minmax(0, 1fr) 70px;
+      grid-template-rows: auto 1fr auto;
+      gap: 6px;
+    }
+    .top {
+      width: 100%;
+    }
+    .left,
+    .right {
+      align-self: start;
+    }
+    .mid {
+      min-height: 0;
+      align-self: stretch;
+      border: 3px solid #000;
+      background: var(--nb-bg);
+      box-shadow: var(--nb-shadow-sm);
+      padding: 6px 4px;
+    }
+    .trick {
+      /* Stichkarten: so groß, wie die Mitte es zulässt */
+      --card-w: min(70px, calc((100vw - 12px - 140px - 16px - 28px) / 3));
+      gap: 2px 6px;
+      padding: 2px;
+    }
+    .me {
+      align-self: end;
+    }
+    .me :global(.plate) {
+      width: 100%;
+    }
+    .note {
+      font-size: 0.74rem;
     }
   }
 </style>

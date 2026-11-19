@@ -1,0 +1,60 @@
+name: Build & Test
+
+# Läuft bei Pull Requests, per Hand und als Vorstufe des Deploys (siehe deploy.yml).
+# Auf "main" startet deploy.yml diese Tests selbst, damit nichts doppelt läuft.
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Install dependencies
+        run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - name: Svelte-Syntaxcheck
+        run: npm run check:svelte
+      - name: Unit tests (Logik ohne Browser)
+        run: npm run test:ci
+      - name: Build
+        run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Regelkern
+        run: python -m unittest discover -s tests/rules -t .
+      - name: Tischschicht und HTTP
+        run: python -m unittest discover -s tests/service -t .
+      - name: Echte App (SQLAlchemy, Socket.IO)
+        run: python -m pytest -q tests/test_api_flow.py tests/test_rooms.py tests/test_community.py
+
+  docker:
+    # Bauen beide Images und prüfen, dass docker-compose.yml mit der Beispiel-Konfiguration gültig ist.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose-Datei prüfen
+        run: |
+          cp .env.example .env
+          sed -i 's/^SECRET_KEY=.*/SECRET_KEY=ci-only-not-secret/' .env
+          docker compose config --quiet
+      - name: Images bauen
+        run: docker compose build

@@ -1,0 +1,13 @@
+# Gilt fuer den Frontend-Build (Kontext = Projektordner). Das Backend hat ein eigenes .dockerignore.
+node_modules
+dist
+.git
+.github
+.env
+.env.*
+backend
+docs
+e2e
+tests
+*.md
+*.zip

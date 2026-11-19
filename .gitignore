@@ -1,0 +1,45 @@
+# =========================  Geheimnisse (NIE einchecken)  =========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+deploy_key*
+known_hosts
+
+# =========================  Abhaengigkeiten und Build  =========================
+node_modules/
+dist/
+coverage/
+*.local
+
+# =========================  Python / Backend  =========================
+backend/.venv/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Datenbanken und Laufzeitdaten: enthalten Spielernamen, Tisch-Chat-Spuren, Vorschlaege, Statistik
+backend/instance/
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+*.db
+
+# =========================  Logs, Testlaeufe  =========================
+*.log
+npm-debug.log*
+test-results/
+playwright-report/
+
+# =========================  Editoren, Betriebssystem, Archive  =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.sw?
+*.zip
+.claude/

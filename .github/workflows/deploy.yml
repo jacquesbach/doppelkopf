@@ -1,0 +1,126 @@
+name: Deploy
+
+# Bei jedem Push auf "main" (und per Hand): erst alle Tests, dann Dateien per SSH auf den Server legen,
+# dort .env aus den GitHub-Secrets schreiben und `docker compose up -d --build` ausführen.
+# Einrichtung Schritt für Schritt: docs/DEPLOYMENT.md
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Zwei Deploys nie gleichzeitig; ein laufender wird nicht abgebrochen, sondern der nächste wartet.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/build-and-test.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Secrets/Variablen können unter Settings > Environments > production liegen (dort geht auch eine manuelle Freigabe).
+    environment: production
+    env:
+      # --- Secrets ---
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      # --- Variablen (nicht geheim; Standardwerte, wenn nicht gesetzt) ---
+      SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/doppelkopf' }}
+      FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '8080' }}
+      BACKEND_PORT: ${{ vars.BACKEND_PORT || '8181' }}
+      BACKEND_BIND: ${{ vars.BACKEND_BIND || '127.0.0.1' }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS || '*' }}
+      COMPOSE_PROJECT_NAME: ${{ vars.COMPOSE_PROJECT_NAME || 'doppelkopf' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Eingaben prüfen
+        run: |
+          missing=0
+          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS SECRET_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Secret $name fehlt (Settings > Secrets and variables > Actions)"; missing=1; fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          case "$DEPLOY_PATH" in /*) ;; *) echo "::error::DEPLOY_PATH muss ein absoluter Pfad sein"; exit 1;; esac
+          if ! printf '%s' "$DEPLOY_PATH" | grep -Eq '^/[A-Za-z0-9._/-]+$'; then echo "::error::DEPLOY_PATH enthält ungültige Zeichen"; exit 1; fi
+          for name in FRONTEND_PORT BACKEND_PORT SSH_PORT; do
+            if ! printf '%s' "${!name}" | grep -Eq '^[0-9]{2,5}$'; then echo "::error::$name muss eine Zahl sein"; exit 1; fi
+          done
+          # Werte landen in einer .env mit einfachen Anführungszeichen: diese und Zeilenumbrüche sind darin nicht möglich.
+          for name in SECRET_KEY ADMIN_PASSWORD CORS_ORIGINS; do
+            case "${!name}" in *"'"*|*$'\n'*) echo "::error::$name darf kein ' und keinen Zeilenumbruch enthalten"; exit 1;; esac
+          done
+          if [ "${#SECRET_KEY}" -lt 32 ]; then echo "::error::SECRET_KEY ist zu kurz (mindestens 32 Zeichen)"; exit 1; fi
+          if [ -n "$ADMIN_PASSWORD" ] && [ "${#ADMIN_PASSWORD}" -lt 10 ]; then echo "::error::ADMIN_PASSWORD braucht mindestens 10 Zeichen"; exit 1; fi
+
+      - name: SSH vorbereiten
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CONF
+          Host deploy
+            HostName $SSH_HOST
+            User $SSH_USER
+            Port $SSH_PORT
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          CONF
+          ssh deploy 'echo "SSH ok: $(whoami)@$(hostname)"; docker compose version'
+
+      - name: Dateien auf den Server kopieren
+        run: |
+          ssh deploy "mkdir -p '$DEPLOY_PATH'"
+          rsync -az --delete --human-readable \
+            --exclude='.git/' --exclude='.github/' --exclude='node_modules/' --exclude='dist/' \
+            --exclude='.env' --exclude='.env.*' --exclude='backend/instance/' \
+            --exclude='__pycache__/' --exclude='.pytest_cache/' --exclude='e2e/' \
+            ./ "deploy:$DEPLOY_PATH/"
+
+      - name: .env auf dem Server schreiben
+        run: |
+          {
+            printf "COMPOSE_PROJECT_NAME='%s'\n" "$COMPOSE_PROJECT_NAME"
+            printf "APP_ENV='production'\n"
+            printf "SECRET_KEY='%s'\n" "$SECRET_KEY"
+            printf "ADMIN_PASSWORD='%s'\n" "$ADMIN_PASSWORD"
+            printf "FRONTEND_PORT='%s'\n" "$FRONTEND_PORT"
+            printf "BACKEND_PORT='%s'\n" "$BACKEND_PORT"
+            printf "BACKEND_BIND='%s'\n" "$BACKEND_BIND"
+            printf "CORS_ORIGINS='%s'\n" "$CORS_ORIGINS"
+          } | ssh deploy "umask 077 && cat > '$DEPLOY_PATH/.env'"
+
+      - name: Bauen und starten
+        run: |
+          ssh deploy "cd '$DEPLOY_PATH' && docker compose up -d --build --remove-orphans --wait --wait-timeout 180"
+
+      - name: Gesundheitstest
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if ssh deploy "curl -fsS --max-time 5 http://127.0.0.1:$FRONTEND_PORT/api/health"; then echo; echo "Server antwortet."; exit 0; fi
+            echo "Versuch $attempt fehlgeschlagen, warte …"; sleep 5
+          done
+          echo "::error::Nach dem Deploy antwortet /api/health nicht."
+          ssh deploy "cd '$DEPLOY_PATH' && docker compose ps && docker compose logs --tail=60"
+          exit 1
+
+      - name: Alte Images aufräumen
+        run: ssh deploy "docker image prune -f"
+
+      - name: Schlüssel entfernen
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/config ~/.ssh/known_hosts

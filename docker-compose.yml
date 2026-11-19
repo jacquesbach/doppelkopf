@@ -1,0 +1,47 @@
+# Alle Einstellungen stehen in der Datei .env (Vorlage: .env.example). Auf dem Server schreibt GitHub Actions sie bei jedem Deploy.
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY fehlt - in .env eintragen, siehe .env.example}"
+      # Betreiber-Backend unter /admin; ohne Passwort bleibt es abgeschaltet (in Produktion mind. 10 Zeichen)
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DATABASE_URL: sqlite:////data/doppelkopf.sqlite3
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}   # Socket.IO prueft den Origin strikt; hinter dem Proxy sonst dauerhaft "Offline"
+      TRUST_PROXY: "1"                   # nginx steht davor: Besucheradresse aus X-Forwarded-For (fuer die Missbrauchsbremsen)
+      BACKEND_PORT: ${BACKEND_PORT:-8181}
+    volumes:
+      - doppelkopf-data:/data
+    ports:
+      # Standard: nur vom Server selbst erreichbar (Besucher kommen ueber das Frontend). BACKEND_BIND=0.0.0.0 oeffnet ihn nach aussen.
+      - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8181}:${BACKEND_PORT:-8181}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ['BACKEND_PORT'], timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    restart: unless-stopped
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-8181}
+      NGINX_ENVSUBST_FILTER: BACKEND_PORT   # nur diese Variable in die nginx-Vorlage einsetzen
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+volumes:
+  doppelkopf-data:

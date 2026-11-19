@@ -1,8 +1,17 @@
 # Alle Einstellungen stehen in der Datei .env (Vorlage: .env.example). Auf dem Server schreibt GitHub Actions sie bei jedem Deploy.
+
+# Container-Protokolle begrenzen: 3 Dateien a 2 MB, danach wird das Aelteste ueberschrieben (Datenschutz: keine unbegrenzte Aufbewahrung).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "2m"
+    max-file: "3"
+
 services:
   backend:
     build: ./backend
     restart: unless-stopped
+    logging: *logging
     environment:
       APP_ENV: ${APP_ENV:-production}
       SECRET_KEY: "${SECRET_KEY:?SECRET_KEY fehlt - in .env eintragen, siehe .env.example}"
@@ -29,12 +38,18 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_SITE_URL: ${SITE_URL:-https://doppelkopf.cc}   # Domain fuer canonical, Sitemap, robots.txt und Link-Vorschau
     restart: unless-stopped
+    logging: *logging
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-8181}
       NGINX_ENVSUBST_FILTER: BACKEND_PORT   # nur diese Variable in die nginx-Vorlage einsetzen
     ports:
       - "${FRONTEND_PORT:-8080}:80"
+    volumes:
+      # Betreiberangaben fuer Impressum/Datenschutz (legal.json). Der Deploy schreibt sie aus den GitHub-Variablen LEGAL_*;
+      # fehlt die Datei, zeigt die Seite markierte Testdaten. Nicht im Git, nicht im Image.
+      - ./legal:/usr/share/nginx/html/legal:ro
     depends_on:
       backend:
         condition: service_healthy

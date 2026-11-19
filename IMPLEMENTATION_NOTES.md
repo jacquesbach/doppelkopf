@@ -94,7 +94,8 @@ Die alte Engine `game_engine.py` samt ihrer Tests wurde entfernt.
   Bitte einmal `npm install && npm test && npm run build` laufen lassen und die Seiten im Browser ansehen; Compiler-Warnungen
   (z. B. ungenutzte CSS-Selektoren in den übernommenen Komponenten) sind zu erwarten und unkritisch.
 - Ebenfalls nicht gegen die echten Pakete geprüft: `tests/test_api_flow.py`/`test_rooms.py` (SQLAlchemy, Flask-SocketIO) – bitte mit `pytest` laufen lassen.
-- Impressum/Datenschutz sind Platzhalter (`src/pages/Legal.svelte`).
+- Impressum/Datenschutz: Texte in `src/pages/Legal.svelte`, Betreiberangaben aus `legal/legal.json` (vom Deploy aus den GitHub-Variablen `LEGAL_*` erzeugt; ohne Datei markierte Testdaten). Die Datenschutzerklärung beschreibt den Ist-Zustand des Codes (localStorage-Schlüssel, Tisch-Daten, Vorschläge, Protokolle) und muss bei neuen Funktionen mitgepflegt werden.
+- SEO: `src/lib/seo.js` (Titel/Beschreibung/robots je Seite), `scripts/seo-build.mjs` (je Seite HTML, `robots.txt`, `sitemap.xml` beim Build), `/regeln` als Inhaltsseite, `deploy/nginx.conf` (404-Status, noindex, Cache, gzip, IP-gekürzte Protokolle).
 
 ---
 
@@ -258,3 +259,11 @@ Host am Rundenende) neben „Ergebnis anzeigen“ und „Stiche ansehen“, wenn
 - Übrig waren nur Projekt-Rahmendateien (Lizenz-, Beitrags- und Verhaltenstext, Nix-Flake, `.gitignore`, `.editorconfig`, Dependabot-/CodeQL-Konfiguration).
   Sie wurden neu geschrieben bzw. entfernt (Flake). `LICENSE` enthält einen Platzhalter für den eigenen Namen.
 - Offene Bestätigung: `pages/Landing.svelte` und `pages/Lobby.svelte` stammen aus den mitgelieferten Design-Komponenten (Präfix `nb-`); ihre Herkunft ist nicht dokumentiert.
+
+## Mobile Tischansicht
+
+- **Karten:** `PlayingCard.svelte` zeigt Karten unter ca. 70 px Breite (per Container-Query, also vor allem am Handy) mit großem Eck-Index und einem großen Symbol statt vieler kleiner Punkte. Breitere Karten bleiben unverändert.
+- **Hand:** Am Handy passen 12 Karten mit gut der Hälfte Überlappung genau in die Bildschirmbreite (`--card-w` in `GameTable.svelte`).
+- **Zwei Tipps zum Spielen (nur Touch-Geräte):** `Hand.svelte` erkennt per `(hover: none) and (pointer: coarse)`, ob es ein Touch-Gerät ist. Erster Tipp wählt die Karte aus (sie ragt heraus), ein zweiter Tipp auf dieselbe Karte spielt sie. Tipp daneben oder Ende des Zugs hebt die Auswahl auf. Mit Maus genügt ein Klick. Die Logik steht als reine Funktionen in `src/lib/selection.js` (Tests: `tests/selection.test.js`).
+- **Aufbau:** Schlanker Kopf (Spielart, CHAT, MENÜ mit den übrigen Knöpfen), Mitspieler mit kleinem Kartenfächer, Stichfläche als Kasten, eigene Leiste, einklappbare Ansagen (`ActionBar.svelte`), Hand unten.
+- **Kartenrücken:** Neubrutalism-Design (Gelb mit Korallen-Streifen, schwarze Konturen, Raute), identisch auf Handy und Desktop. `CardBack.svelte` vergibt je Instanz eine eigene Muster-ID; eine gemeinsame ID wäre ins Leere gelaufen, sobald die erste Instanz in einem ausgeblendeten Bereich steht.

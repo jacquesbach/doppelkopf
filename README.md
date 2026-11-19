@@ -39,7 +39,8 @@ docker compose up --build        # Frontend auf http://localhost:8080 (FRONTEND_
 
 nginx liefert das Frontend aus und leitet `/api` und `/socket.io` an das Backend weiter (ein Ursprung, kein CORS).
 Alle Geheimnisse und Ports stehen in der `.env` (Vorlage: [`.env.example`](.env.example)). Für den öffentlichen Betrieb außerdem
-Impressum/Datenschutz in `src/pages/Legal.svelte` ausfüllen.
+die Betreiberangaben für Impressum und Datenschutz als GitHub-Variablen `LEGAL_*` hinterlegen (stehen nicht im Code, siehe
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)) und `SITE_URL` auf die eigene Domain setzen.
 
 ## Deployment mit GitHub Actions
 

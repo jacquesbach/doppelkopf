@@ -9,6 +9,10 @@ id_ed25519*
 deploy_key*
 known_hosts
 
+# Betreiberangaben (Impressum/Datenschutz): gehoeren dem jeweiligen Betreiber, nicht ins Repository
+/legal/
+public/legal/
+
 # =========================  Abhaengigkeiten und Build  =========================
 node_modules/
 dist/

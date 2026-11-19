@@ -168,7 +168,7 @@
             </div>
             <h3 class="nb-h3">Sonderregeln nach Maß</h3>
             <p class="nb-body">
-              Ob mit oder ohne Neuner, zweite Dulle sticht, Karlchen-Sonderpunkt oder Schweinchen:
+              Ob mit oder ohne Neuner, zweite Dulle sticht, Karlchen-Sonderpunkt, Schweinchen oder Armut:
               Jeder Tisch konfiguriert seine Hausregeln vor dem ersten Stich.
             </p>
           </article>

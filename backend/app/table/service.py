@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from ..rules import DuplicateAction, Phase, RuleProfile, RuleViolation, VersionConflict, apply_action
 from .actions import parse_action
 from .bots import next_bot_action
-from .state import DEFAULT_TAKEOVER, TAKEOVER_CHOICES, WARN_SECONDS, TableState, new_table, settle, start_next, view_for
+from .state import (DEFAULT_TAKEOVER, TAKEOVER_CHOICES, WARN_SECONDS, TableState, new_table, redeal_if_needed, settle,
+                    start_next, view_for)
 from .store import Stored, TableStore
 
 
@@ -46,13 +47,21 @@ def _acting_seat(game) -> int | None:
         return game.resolution_queue[0] if game.resolution_queue else None
     if game.phase is Phase.BAPTISM:
         return game.baptism_seat
+    if game.phase is Phase.POVERTY_PASS:
+        return game.poverty_seat
+    if game.phase is Phase.POVERTY_OFFER:
+        return game.poverty_queue[0] if game.poverty_queue else None
+    if game.phase is Phase.POVERTY_RETURN:
+        return game.poverty_buyer
     if game.phase is Phase.PLAYING:
         return game.mandatory_pending if game.mandatory_pending is not None else game.turn
     return None
 
 
-def run_bots(table: TableState) -> list[dict]:
-    """Laesst Bots handeln, bis ein Mensch dran ist oder das Spiel endet; bucht das Spielende."""
+def run_bots(table: TableState, rng: random.Random | None = None) -> list[dict]:
+    """Laesst Bots handeln, bis ein Mensch dran ist oder das Spiel endet; bucht das Spielende.
+
+    Wird eine Armut von niemandem uebernommen, wird neu gegeben (``rng`` mischt) und weitergespielt."""
     summaries: list[dict] = []
     for _ in range(MAX_BOT_STEPS):
         pending = next_bot_action(table.game, table.bot_seats)
@@ -60,6 +69,7 @@ def run_bots(table: TableState) -> list[dict]:
             break
         seat, action = pending
         apply_action(table.game, action)
+        redeal_if_needed(table, rng)
     else:  # pragma: no cover - waere ein Fehler in der Bot-Logik
         raise RuntimeError("Bot-Schleife terminiert nicht")
     summary = settle(table)
@@ -127,9 +137,19 @@ class TableService:
             seats = [dict(s, noTakeover=True) if s["memberId"] in kept else s for s in seats]
             table = new_table(seats, profile, self.rng, takeover)
             table.touched = self.clock()
-            summaries = [] if self.paced else run_bots(table)
+            summaries = [] if self.paced else run_bots(table, self.rng)
             version = self.store.create(code, table)
             if summaries:  # nur moeglich, wenn alle Sitze Bots sind
+                version = self._save(code, table, version, summaries)
+            return version
+
+    def install(self, code: str, table: TableState) -> int:
+        """Fertig gebauten Tisch (z. B. Test-Tisch mit festen Karten) einsetzen; ersetzt einen vorhandenen Tisch."""
+        with self._lock(code):
+            table.touched = self.clock()
+            summaries = [] if self.paced else run_bots(table, self.rng)
+            version = self.store.create(code, table)
+            if summaries:
                 version = self._save(code, table, version, summaries)
             return version
 
@@ -154,11 +174,12 @@ class TableService:
                 apply_action(table.game, action, action_id=action_id)
             except DuplicateAction:                # Wiederholung desselben Requests: Erfolg ohne Wirkung
                 return Outcome(stored.version, duplicate=True)
+            redeal_if_needed(table, self.rng)
             table.seats[seat].pop("autoplay", None)     # wer handelt, ist wieder da
             _maybe_hold(table, tricks_before)
             summaries = [s for s in [settle(table)] if s]
             if not self.paced:
-                summaries += run_bots(table)
+                summaries += run_bots(table, self.rng)
             version = self._save(code, table, stored.version, summaries)
             return Outcome(version, summaries=summaries)
 
@@ -170,7 +191,7 @@ class TableService:
                 raise AccessDenied("Nur Spieler dieses Tisches koennen das naechste Spiel starten.")
             start_next(table, self.rng)
             table.holding = False
-            summaries = [] if self.paced else run_bots(table)
+            summaries = [] if self.paced else run_bots(table, self.rng)
             return Outcome(self._save(code, table, stored.version, summaries), summaries=summaries)
 
     def _require(self, code: str) -> Stored:
@@ -210,6 +231,7 @@ class TableService:
             _, action = pending
             tricks_before = len(table.game.tricks)
             apply_action(table.game, action)
+            redeal_if_needed(table, self.rng)
             _maybe_hold(table, tricks_before)
             summaries = [s for s in [settle(table)] if s]
             return Outcome(self._save(code, table, stored.version, summaries), summaries=summaries)

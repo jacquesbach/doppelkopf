@@ -8,7 +8,7 @@ export const HOME_LEAD =
 
 export const HOME_FEATURES = [
   "DDV-Turnierregeln, mit oder ohne Neunen",
-  "Hausregeln pro Tisch: Schweinchen, Bockrunden, zweite Dulle und mehr",
+  "Hausregeln pro Tisch: Schweinchen, Armut, Bockrunden, zweite Dulle und mehr",
   "Privater Stammtisch per Link oder Sofort-Partie gegen Bots",
   "Stich-Protokoll und komplette Abrechnung nach jedem Spiel",
 ];

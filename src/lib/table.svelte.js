@@ -1,6 +1,6 @@
 // Zustand eines Tisches: Raum (Lobby), Spielsicht, Chat und Verbindung. Die Oberfläche ruft nur Methoden auf.
 import { ApiError } from "./api.js";
-import { chatToast, describeEvent, justFinished, newEvents } from "./events.js";
+import { chatToast, describeEvent, justFinished, newEvents, redealToast } from "./events.js";
 import { createRoomSocket } from "./socket.js";
 
 // Antwortet der Server (auch mit einem Fehler wie 404/409), besteht die Verbindung; Netzwerkfehler und 502–504 nicht.
@@ -124,6 +124,8 @@ export class TableStore {
   #applyView(view) {
     if (this.view && view.version < this.view.version) return;
     this.#announce(newEvents(this.view, view), view);
+    const redeal = redealToast(this.view, view);
+    if (redeal) this.#pushToast(redeal);
     if (justFinished(this.view, view)) this.#holdResult(view.table.gameNumber);
     this.#setView(view);
   }
@@ -147,7 +149,7 @@ export class TableStore {
     for (const e of events) {
       const info = describeEvent(view, e);
       if (!info) continue;
-      this.#pushToast({ key: `${view.table.gameNumber}-${e.id}`, ...info });
+      this.#pushToast({ key: `${view.table.gameNumber}.${view.table.redeals ?? 0}-${e.id}`, ...info });
     }
   }
 

@@ -6,6 +6,7 @@
   import PageShell from "../components/ui/PageShell.svelte";
   import Lobby from "./Lobby.svelte";
   import GameTable from "../components/game/GameTable.svelte";
+  import LabBar from "../components/game/LabBar.svelte";
 
   let { code } = $props();
 
@@ -40,6 +41,10 @@
   {:else}
     <GameTable {store} />
   {/if}
+{/if}
+
+{#if store.status === "ready"}
+  <LabBar {code} mySeat={store.view?.table.mySeat ?? null} />
 {/if}
 
 {#if store.error && store.status === "ready"}

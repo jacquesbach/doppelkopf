@@ -22,12 +22,16 @@ def human_move(table, rng):
         return None
     a = rng.choice(turn_acts) if table.game.turn != 0 else next((x for x in turn_acts if x["type"] != "announce"), turn_acts[0])
     t = a["type"]
-    return {"declare": {"type": "declare", "reservation": rng.random() < 0.15},
-            "resolve": {"type": "resolve", "accept": rng.random() < 0.5},
-            "baptize": {"type": "baptize", "choice": rng.choice(a.get("choices", ["solo_queens"]))},
-            "play_card": {"type": "play_card", "cardId": rng.choice(a.get("cards", [""]))},
-            "announce": {"type": "announce", "level": rng.choice(a.get("levels", [0]))},
-            "schweinchen": {"type": "schweinchen"}}[t]
+    payload = {"declare": {"type": "declare", "reservation": rng.random() < 0.15},
+               "resolve": {"type": "resolve", "accept": rng.random() < 0.5},
+               "baptize": {"type": "baptize", "choice": rng.choice(a.get("choices", ["solo_queens"]))},
+               "play_card": {"type": "play_card", "cardId": rng.choice(a.get("cards", [""]))},
+               "announce": {"type": "announce", "level": rng.choice(a.get("levels", [0]))},
+               "schweinchen": {"type": "schweinchen"},
+               "poverty_pass": lambda: {"type": "poverty_pass", "cardIds": rng.sample(a["cards"], 3)},
+               "poverty_offer": lambda: {"type": "poverty_offer", "accept": rng.random() < 0.5},
+               "poverty_return": lambda: {"type": "poverty_return", "cardIds": rng.sample(a["cards"], 3)}}[t]
+    return payload() if callable(payload) else payload
 
 
 class RoundWithBots(unittest.TestCase):
@@ -79,6 +83,16 @@ class RoundWithBots(unittest.TestCase):
         table, summaries = self.play_round(profile, 7)
         self.check_round(table, summaries, profile)
 
+    def test_full_round_with_poverty_rule(self):
+        profile = make_profile(DeckVariant.WITH_NINES, RuleOptions(poverty=True))
+        kinds = set()
+        for seed in (4, 8):
+            table, summaries = self.play_round(profile, seed)
+            self.check_round(table, summaries, profile)
+            kinds |= {r["kind"] for r in table.round.results}
+        self.assertTrue(kinds <= {"normal", "pflichtsolo", "pflichtsolo_forced", "lustsolo", "wedding",
+                                  "silent_wedding", "poverty"})
+
     def test_bots_deal_with_forced_solo(self):
         """Bots, die vorgefuehrt werden, taufen selbst ein Solo; passive Menschen erzwingen 4 Vorfuehrungen."""
         table, summaries = self.play_round(ddv_profile(), 5)
@@ -121,6 +135,10 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parse_action(1, {"type": "announce", "level": 0}).level, 0)
         self.assertTrue(parse_action(0, {"type": "declare", "reservation": True}).reservation)
         self.assertEqual(parse_action(3, {"type": "schweinchen"}).seat, 3)
+        self.assertEqual(parse_action(2, {"type": "poverty_pass", "cardIds": ["A-♣-0", "9-♣-1", "K-♠-0"]}).card_ids,
+                         ("A-♣-0", "9-♣-1", "K-♠-0"))
+        self.assertTrue(parse_action(1, {"type": "poverty_offer", "accept": True}).accept)
+        self.assertEqual(parse_action(3, {"type": "poverty_return", "cardIds": ["A-♣-0"]}).seat, 3)
 
     def test_seat_never_taken_from_payload(self):
         self.assertEqual(parse_action(1, {"type": "play_card", "cardId": "A-♣-0", "seat": 3, "memberId": 99}).seat, 1)
@@ -128,7 +146,10 @@ class ParserTests(unittest.TestCase):
     def test_rejects_bad_payloads(self):
         for bad in (None, [], {}, {"type": "nope"}, {"type": "play_card"}, {"type": "play_card", "cardId": 5},
                     {"type": "announce", "level": "0"}, {"type": "announce", "level": True},
-                    {"type": "declare", "reservation": "yes"}, {"type": "resolve"}):
+                    {"type": "declare", "reservation": "yes"}, {"type": "resolve"},
+                    {"type": "poverty_pass"}, {"type": "poverty_pass", "cardIds": "A-♣-0"},
+                    {"type": "poverty_pass", "cardIds": [1, 2, 3]}, {"type": "poverty_return", "cardIds": None},
+                    {"type": "poverty_offer"}, {"type": "poverty_offer", "accept": "yes"}):
             with self.assertRaises(RuleViolation, msg=str(bad)):
                 parse_action(0, bad)
 

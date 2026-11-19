@@ -219,7 +219,7 @@ class SqlTableOverview:
                     game = None
             rows.append({
                 "code": room.code, "status": room.status, "isPublic": bool(room.is_public),
-                "hasPassword": bool(room.password_hash), "createdAt": _ts(room.created_at),
+                "hasPassword": bool(room.password_hash), "isLab": bool(room.lab_spec_json), "createdAt": _ts(room.created_at),
                 "startedAt": _ts(log.started_at) if log else None, "lastActivityAt": max(m for m in moments if m),
                 "humans": len(humans), "bots": sum(m.is_bot for m in room.members),
                 "spectators": sum(m.role == "spectator" for m in room.members),

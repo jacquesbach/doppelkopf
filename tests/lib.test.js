@@ -8,7 +8,7 @@ import { createSessions } from "../src/lib/sessions.js";
 import { ApiError, createApi, socketOrigin } from "../src/lib/api.js";
 import { createRoomSocket } from "../src/lib/socket.js";
 import * as V from "../src/lib/view.js";
-import { chatToast, describeEvent, justFinished, newEvents, snippet } from "../src/lib/events.js";
+import { chatToast, describeEvent, justFinished, newEvents, redealToast, snippet } from "../src/lib/events.js";
 import { TAKEOVER_OPTIONS, takeoverLabel } from "../src/lib/labels.js";
 import { SPRUECHE } from "../src/lib/sprueche.js";
 
@@ -337,4 +337,86 @@ test("Chat-Sprüche: vollständig, eindeutig und sendbar (≤ 200 Zeichen, nicht
     assert.equal(s, s.trim());
   }
   assert.ok(SPRUECHE.includes("Hinten sind die Enten fett."));
+});
+
+test("Armut: Dialoge, Zugrecht und Statuszeilen für alle Phasen", () => {
+  const offer = makeView({
+    mySeat: 3,
+    game: {
+      phase: "poverty_offer",
+      turn: null,
+      poverty: { seat: 2, buyer: null, offerSeat: 3 },
+      legalActions: [{ type: "poverty_offer", options: [true, false] }],
+    },
+  });
+  assert.equal(V.activeDialog(offer).type, "poverty_offer");
+  assert.equal(V.actingSeat(offer), 3);
+  assert.ok(V.isMyTurn(offer));
+  assert.equal(V.statusText(offer), "Armut von Cleo: Übernimmst du sie?");
+  const watching = makeView({ mySeat: 0, game: { ...offer.game, legalActions: [] } });
+  assert.equal(V.activeDialog(watching), null);
+  assert.equal(V.statusText(watching), "Armut von Cleo: Dirk entscheidet, ob er sie übernimmt.");
+
+  const pass = makeView({
+    mySeat: 2,
+    game: {
+      phase: "poverty_pass",
+      turn: null,
+      poverty: { seat: 2, buyer: null, offerSeat: null },
+      legalActions: [{ type: "poverty_pass", count: 3, cards: ["A-♣-0", "9-♦-1"] }],
+    },
+  });
+  assert.equal(V.activeDialog(pass), null); // Karten werden in der Hand markiert, kein Dialog
+  assert.equal(V.povertyPick(pass).count, 3);
+  assert.equal(V.actingSeat(pass), 2);
+  assert.match(V.statusText(pass), /Wähle 3 Karten/);
+  assert.match(V.statusText(makeView({ mySeat: 0, game: { ...pass.game, legalActions: [] } })), /Cleo wählt 3 Karten/);
+
+  const back = makeView({
+    mySeat: 3,
+    game: {
+      phase: "poverty_return",
+      turn: null,
+      poverty: { seat: 2, buyer: 3, offerSeat: null },
+      legalActions: [{ type: "poverty_return", count: 3, cards: ["A-♣-0"], received: ["9-♦-1"] }],
+    },
+  });
+  assert.deepEqual(V.povertyPick(back).received, ["9-♦-1"]);
+  assert.equal(V.actingSeat(back), 3);
+  assert.match(V.statusText(back), /Gib 3 beliebige Karten zurück/);
+  assert.equal(V.povertyPick(makeView()), null);
+});
+
+test("Armut: Marken am Sitz, Überschrift, Bezeichnungen, Hinweise, Lobby-Etikett", () => {
+  const view = makeView({
+    mySeat: 0,
+    game: { kind: "poverty", poverty: { seat: 2, buyer: 3, offerSeat: null } },
+  });
+  assert.deepEqual(V.seatBadges(view, 2), ["Armut"]);
+  assert.deepEqual(V.seatBadges(view, 3), ["Übernahme"]);
+  assert.equal(V.gameHeadline(view), "Spiel 3 · Armut");
+  assert.equal(kindLabel("poverty"), "Armut");
+  const ev = (type, extra) => ({ id: 1, type, ...extra });
+  assert.match(describeEvent(view, ev("poverty", { seat: 2 })).text, /Cleo meldet eine Armut an/);
+  assert.match(describeEvent(view, ev("poverty_taken", { seat: 2, buyer: 3 })).text, /Dirk übernimmt die Armut von Cleo/);
+  assert.match(describeEvent(view, ev("poverty_void", { seat: 2 })).text, /Niemand übernimmt die Armut von Cleo/);
+  assert.ok(V.activeRuleLabels({ poverty: true }).includes("Armut"));
+  assert.ok(!V.activeRuleLabels({ poverty: false }).includes("Armut"));
+  const resolving = makeView({ mySeat: 3, game: { phase: "reservation_resolution", resolution: { stage: "poverty", seat: 0 } } });
+  assert.match(V.statusText(resolving), /Anna entscheidet über die Armut/);
+});
+
+test("Armut: Hinweis beim Neugeben (Spielnummer bleibt, Ereignisfolge beginnt neu)", () => {
+  const before = makeView({ table: { redeals: 0 }, game: { events: [{ id: 5, type: "poverty_void", seat: 2 }] } });
+  const after = makeView({ table: { redeals: 1, redealSeat: 2 }, game: { events: [{ id: 1, type: "reservation", seat: 0 }] } });
+  const toast = redealToast(before, after);
+  assert.equal(toast.title, "Neu gegeben");
+  assert.match(toast.text, /Niemand übernimmt die Armut von Cleo/);
+  assert.equal(redealToast(after, after), null); // nur beim Zählersprung
+  assert.equal(redealToast(null, after), null);
+  assert.equal(redealToast(before, makeView({ table: { gameNumber: 4, redeals: 1 } })), null); // anderes Spiel
+  // Die neuen Ereignisse (id 1) gelten trotz kleinerer id als neu, weil neu gegeben wurde
+  assert.equal(newEvents(before, after).length, 1);
+  const same = makeView({ table: { redeals: 0 }, game: { events: [{ id: 1, type: "reservation", seat: 0 }] } });
+  assert.equal(newEvents(before, same).length, 0);
 });

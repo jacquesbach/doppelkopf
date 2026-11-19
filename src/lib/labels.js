@@ -25,6 +25,7 @@ export const KIND_LABELS = {
   lustsolo: "Lustsolo",
   wedding: "Hochzeit",
   silent_wedding: "Stille Hochzeit",
+  poverty: "Armut",
 };
 
 export function gameTypeLabel(type) {
@@ -91,6 +92,7 @@ export const RULE_TAGS = {
   solo_leads: ["Solo spielt aus"],
   karlchen_caught: ["Karlchen fangen"],
   schweinchen: ["Schweinchen"],
+  poverty: ["Armut"],
   bock_heart_trick: ["Bock bei Herzstich"],
   bock_zero_game: ["Bock bei Nullspiel"],
   bock_120: ["Bock bei 120 Augen"],

@@ -5,7 +5,9 @@
 
   // `playable`: Set erlaubter Karten-IDs (vom Server) oder null, wenn gerade nichts gespielt werden darf.
   // `twoStep`: true = erst auswählen, dann ausspielen (Handy); false = sofort spielen; null = automatisch (Touch-Gerät).
-  let { hand, playable = null, onplay, twoStep = null } = $props();
+  // `pick`: Armut – statt zu spielen werden mehrere Karten markiert: { selected: [ids], allowed: Set, received: [ids],
+  // hint: Text, onToggle(id) }. `received` sind die Karten, die man gerade übernommen hat (Markierung „NEU“).
+  let { hand, playable = null, onplay, twoStep = null, pick = null } = $props();
 
   let touch = $state(isTouchPrimary());
   $effect(() => {
@@ -38,7 +40,9 @@
 
 <svelte:window onpointerdown={outside} />
 
-{#if two}
+{#if pick}
+  <p class="hint" aria-live="polite">{pick.hint}</p>
+{:else if two}
   <p class="hint" aria-live="polite">
     {#if playable}{selected ? "Nochmal antippen zum Ausspielen" : "Karte antippen zum Auswählen"}{/if}
   </p>
@@ -46,9 +50,10 @@
 <ul class="hand" aria-label="Deine Hand">
   {#each hand as card (cardId(card))}
     {@const id = cardId(card)}
-    {@const ok = playable?.has(id) ?? false}
-    <li class:sel={selected === id}>
-      <PlayingCard {card} onclick={() => tap(id)} enabled={ok} selected={selected === id} />
+    {@const ok = pick ? (pick.allowed?.has(id) ?? true) : (playable?.has(id) ?? false)}
+    {@const chosen = pick ? pick.selected.includes(id) : selected === id}
+    <li class:sel={chosen} class:fresh={!!pick?.received?.includes(id)}>
+      <PlayingCard {card} onclick={() => (pick ? pick.onToggle(id) : tap(id))} enabled={ok} selected={chosen} />
     </li>
   {/each}
 </ul>
@@ -62,8 +67,30 @@
     justify-content: center;
     min-height: calc(var(--card-w, 72px) * 1.4 + 20px);
   }
+  li {
+    position: relative;
+  }
   li + li {
     margin-left: calc(var(--card-w, 72px) * -0.42);
+  }
+  /* Armut: soeben übernommene Karten tragen ein kleines „NEU“ */
+  li.fresh {
+    z-index: 3;
+  }
+  li.fresh::after {
+    content: "NEU";
+    position: absolute;
+    top: -12px;
+    left: 2px;
+    padding: 0 4px;
+    background: var(--nb-yellow, #ffd23f);
+    border: 2px solid #000;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 0.6rem;
+    line-height: 1.35;
+    pointer-events: none;
+    z-index: 7;
   }
   li:hover,
   li.sel {

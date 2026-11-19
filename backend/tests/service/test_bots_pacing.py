@@ -13,7 +13,7 @@ from app.table.bots import choose_action, hand_strength, known_parties
 from app.table.service import THINK, TRICK_PAUSE
 
 ALL_OPTIONS = RuleOptions(mandatory_announcements=True, solo_leads=True, karlchen_caught=True, schweinchen=True,
-                          bock_heart_trick=True, bock_zero_game=True, bock_120=True, second_dulle_wins=True)
+                          poverty=True, bock_heart_trick=True, bock_zero_game=True, bock_120=True, second_dulle_wins=True)
 
 
 def baseline_action(view):

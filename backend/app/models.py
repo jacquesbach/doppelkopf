@@ -16,6 +16,7 @@ class Room(db.Model):
     settings_json = db.Column(db.Text, nullable=False, default="{}", server_default="{}")  # Regeloptionen + Deck
     is_public = db.Column(db.Boolean, nullable=False, default=False, server_default="0")   # in der Tischliste sichtbar
     takeover_seconds = db.Column(db.Integer, nullable=False, default=180, server_default="180")  # Bot-Uebernahme; 0 = nie
+    lab_spec_json = db.Column(db.Text, nullable=True)   # nur Test-Tische des Betreibers: Szenario (JSON); sonst NULL
     members = db.relationship("Member", backref="room", cascade="all, delete-orphan", lazy=True)
 
 

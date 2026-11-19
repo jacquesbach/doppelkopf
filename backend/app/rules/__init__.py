@@ -7,8 +7,9 @@ from .cards import Card, DeckVariant, Rank, Suit, build_deck, card, hand_size
 from .dealing import deal, shuffled_deck
 from .errors import DuplicateAction, RuleViolation, VersionConflict
 from .game import (Announce, Baptize, Declare, GameKind, GameState, Phase, PlayCard, Resolve,
-                   DeclareSchweinchen, apply_action, bot_view, can_declare_schweinchen, legal_actions,
-                   new_game, player_view, spectator_view)
+                   DeclareSchweinchen, PovertyOffer, PovertyPass, PovertyReturn, apply_action, bot_view,
+                   can_declare_poverty, can_declare_schweinchen, legal_actions, new_game, player_view,
+                   spectator_view)
 from .parties import Party
 from .options import OPTION_SPECS, RuleOptions, normalize_settings, rule_schema, settings_from_dict
 from .profile import (RuleProfile, RuleProfileId, ddv_profile, house_no_nines_profile, make_profile,

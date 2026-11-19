@@ -11,10 +11,27 @@ const name = (view, seat) => view?.table?.seats?.[seat]?.name ?? `Platz ${Number
 export function newEvents(prev, next) {
   const events = next?.game?.events;
   if (!prev || !events?.length) return [];
-  const sameGame = prev.table?.gameNumber === next.table?.gameNumber;
+  // Nach dem Neugeben (Armut ohne Käufer) beginnt das Ereignisprotokoll von vorn, die Spielnummer bleibt.
+  const sameGame =
+    prev.table?.gameNumber === next.table?.gameNumber && (prev.table?.redeals ?? 0) === (next.table?.redeals ?? 0);
   if (!sameGame) return events;
   const lastId = Math.max(0, ...(prev.game?.events ?? []).map((e) => e.id));
   return events.filter((e) => e.id > lastId);
+}
+
+/** Hinweis, wenn gerade neu gegeben wurde (niemand übernahm die Armut); sonst `null`. Gilt nur innerhalb desselben Spiels. */
+export function redealToast(prev, next) {
+  if (!prev || !next) return null;
+  if (prev.table?.gameNumber !== next.table?.gameNumber) return null;
+  const n = next.table?.redeals ?? 0;
+  if (n <= (prev.table?.redeals ?? 0)) return null;
+  return {
+    key: `redeal-${next.table.gameNumber}-${n}`,
+    title: "Neu gegeben",
+    text: `Niemand übernimmt die Armut von ${name(next, next.table.redealSeat)} – das Blatt wird eingepackt und neu gegeben.`,
+    tone: "lavender",
+    ms: 6000,
+  };
 }
 
 /** Text und Farbton eines Ereignisses; `null` für Unbekanntes. tone: yellow | coral | blue | green | lavender */
@@ -27,6 +44,12 @@ export function describeEvent(view, e) {
       return { title: "Solo", text: `${who} spielt ${gameTypeLabel(e.gameType)}.`, tone: "lavender" };
     case "wedding":
       return { title: "Hochzeit", text: `${who} hat eine Hochzeit.`, tone: "lavender" };
+    case "poverty":
+      return { title: "Armut", text: `${who} meldet eine Armut an und gibt 3 Karten ab.`, tone: "lavender" };
+    case "poverty_taken":
+      return { title: "Armut", text: `${name(view, e.buyer)} übernimmt die Armut von ${who}.`, tone: "lavender" };
+    case "poverty_void":
+      return { title: "Armut", text: `Niemand übernimmt die Armut von ${who} – es wird neu gegeben.`, tone: "lavender" };
     case "wedding_clarified":
       return e.solo
         ? { title: "Hochzeit", text: "Niemand hat gestochen – die Hochzeit wird zum Solo.", tone: "lavender" }

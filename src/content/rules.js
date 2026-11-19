@@ -88,8 +88,19 @@ export const RULES = [
     type: "p",
     text:
       "Jeder Tisch stellt vor der ersten Runde ein, welche Regeln gelten. Zur Auswahl stehen unter anderem: Spiel mit oder ohne Dullen, " +
-      "scharfer Doppelkopf (ohne Neunen, 40 Karten), Schweinchen, Pflichtansagen, Bockrunden (bei Herzstich, Nullspiel oder 120 Augen), " +
+      "scharfer Doppelkopf (ohne Neunen, 40 Karten), Schweinchen, Armut, Pflichtansagen, Bockrunden (bei Herzstich, Nullspiel oder 120 Augen), " +
       "„zweite Dulle sticht die erste“, Karlchen, Fuchsjagd und weitere. Die Standardeinstellung folgt den DDV-Turnierregeln.",
+  },
+  { type: "h3", text: "Armut (Hausregel)" },
+  {
+    type: "p",
+    text:
+      "Mit der Hausregel „Armut“ darf, wer höchstens drei Trümpfe hat, als Vorbehalt eine Armut anmelden. Er legt drei Karten verdeckt ab – immer drei, " +
+      "auch bei weniger Trümpfen, damit die anderen im Unklaren bleiben. Reihum, im Uhrzeigersinn, wird gefragt, wer die Armut übernimmt. " +
+      "Wer zusagt, nimmt die drei Karten in sein Blatt und gibt danach drei beliebige Karten an den Armen zurück. Gespielt wird ein Normalspiel, " +
+      "in dem der Arme und der Käufer automatisch zusammen die Partei Re bilden, gegen die anderen beiden (Kontra); die Kreuz-Damen spielen dafür keine Rolle. " +
+      "Übernimmt niemand die Armut, wird das Blatt eingepackt und vom selben Geber neu gegeben. " +
+      "Die Armut gehört nicht zu den DDV-Turnierregeln.",
   },
   { type: "h2", text: "Hinweis" },
   {

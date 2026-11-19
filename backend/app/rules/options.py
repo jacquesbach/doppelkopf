@@ -24,6 +24,7 @@ class RuleOptions:
     # --- Hausregeln ---
     karlchen_caught: bool = False               # Sonderpunkt: gegnerischen Kreuz-Buben im letzten Stich fangen
     schweinchen: bool = False                   # 2x Karo-Ass auf der Hand: zu hoechsten Truempfen erklaerbar
+    poverty: bool = False                       # Armut: Vorbehalt mit hoechstens 3 Truempfen, 3 Karten werden weitergegeben
     bock_heart_trick: bool = False              # Bockrunde nach Stich aus 4 Herz-Fehlkarten
     bock_zero_game: bool = False                # Bockrunde nach Spiel mit 0 Punkten
     bock_120: bool = False                      # Bockrunde bei 120:120 Augen
@@ -86,6 +87,10 @@ OPTION_SPECS: tuple[OptionSpec, ...] = (
                "Extrapunkt, wenn im letzten Stich der Kreuz-Bube der Gegenpartei in den Stich deiner Partei fällt."),
     OptionSpec("schweinchen", "schweinchen", "pub", False, "Schweinchen",
                "Wer beide Karo-Asse auf der Hand hält, darf sie vor der ersten Karte zu den höchsten Trümpfen erklären."),
+    OptionSpec("poverty", "poverty", "pub", False, "Armut",
+               "Wer höchstens drei Trümpfe hat, darf als Vorbehalt „Armut“ anmelden und gibt drei Karten verdeckt weiter. "
+               "Wer sie übernimmt, mischt sie in sein Blatt und gibt drei beliebige Karten zurück. Beide spielen dann "
+               "zusammen als Re gegen die anderen beiden. Will niemand die Armut, wird neu gegeben."),
     OptionSpec("bock_heart_trick", "bock_heart_trick", "pub", False, "Bock nach Herz-Stich",
                "Besteht ein Stich ausschließlich aus Herz-Fehlkarten, zählen die nächsten vier Spiele doppelt (Bockrunde)."),
     OptionSpec("bock_zero_game", "bock_zero_game", "pub", False, "Bock nach Nullspiel",

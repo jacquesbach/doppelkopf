@@ -54,6 +54,7 @@
           {#each data.tables as t (t.code)}
             <tr>
               <td class="mono">{t.code}
+                {#if t.isLab}<span class="tag lab">Test</span>{/if}
                 {#if t.isPublic}<span class="tag">öffentlich</span>{/if}
                 {#if t.hasPassword}<span class="tag">Passwort</span>{/if}
               </td>
@@ -86,6 +87,7 @@
   .scroll { overflow-x: auto; margin-bottom: 8px; }
   .mono { font-family: var(--font-mono); font-weight: 700; white-space: nowrap; }
   .tag { font-family: var(--font-body); font-weight: 400; font-size: 0.72rem; border: 2px solid #000; padding: 0 4px; margin-left: 4px; background: var(--nb-paper); }
+  .tag.lab { background: var(--nb-lavender); font-weight: 700; }
   small { color: #444; }
   .state { display: inline-block; border: 2px solid #000; padding: 0 6px; font-weight: 700; font-size: 0.78rem; margin-right: 4px; }
   .state.active { background: var(--nb-green); }

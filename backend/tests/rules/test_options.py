@@ -28,7 +28,7 @@ class OptionModelTests(unittest.TestCase):
     def test_defaults_are_exactly_the_checked_boxes(self):  # Screenshots: Dullen, Karlchen, Fuchsjagd
         on = {s.id for s in OPTION_SPECS if s.default}
         self.assertEqual(on, {"dulle", "karlchen", "fuchsjagd"})
-        self.assertEqual(len(OPTION_SPECS), 13)
+        self.assertEqual(len(OPTION_SPECS), 14)
         defaults = RuleOptions().to_dict()
         self.assertEqual({k for k, v in defaults.items() if v}, {"dulle", "karlchen", "fuchsjagd"})
 
@@ -36,7 +36,7 @@ class OptionModelTests(unittest.TestCase):
         schema = rule_schema()
         self.assertEqual([s["id"] for s in schema], [
             "dulle", "sharp_doppelkopf", "karlchen", "fuchsjagd", "mandatory_announcements", "solo_leads",
-            "karlchen_caught", "schweinchen", "bock_heart_trick", "bock_zero_game", "bock_120",
+            "karlchen_caught", "schweinchen", "poverty", "bock_heart_trick", "bock_zero_game", "bock_120",
             "second_dulle_wins", "second_dulle_wins_except_last"])
         self.assertEqual({s["group"] for s in schema[:6]}, {"popular"})
         self.assertEqual({s["group"] for s in schema[6:]}, {"pub"})

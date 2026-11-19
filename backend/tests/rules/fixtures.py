@@ -7,7 +7,8 @@ from . import loader  # noqa: F401
 from app.rules.cards import Card, DeckVariant, build_deck, card
 from app.rules.dealing import deal
 from app.rules.game import (Announce, Baptize, Declare, DeclareSchweinchen, GameState, Phase, PlayCard,
-                             Resolve, apply_action, legal_actions, new_game)
+                             PovertyOffer, PovertyPass, PovertyReturn, Resolve, apply_action, legal_actions,
+                             new_game)
 from app.rules.profile import ddv_profile, house_no_nines_profile
 
 WITH, WITHOUT = DeckVariant.WITH_NINES, DeckVariant.WITHOUT_NINES
@@ -97,6 +98,14 @@ def step_random(state: GameState, rng: random.Random, announce_chance: float = 0
         seat = state.baptism_seat
         choice = rng.choice(legal_actions(state, seat)[0]["choices"])
         apply_action(state, Baptize(seat, choice))
+    elif ph is Phase.POVERTY_PASS:
+        seat = state.poverty_seat
+        apply_action(state, PovertyPass(seat, tuple(rng.sample(legal_actions(state, seat)[0]["cards"], 3))))
+    elif ph is Phase.POVERTY_OFFER:
+        apply_action(state, PovertyOffer(state.poverty_queue[0], rng.random() < 0.5))
+    elif ph is Phase.POVERTY_RETURN:
+        seat = state.poverty_buyer
+        apply_action(state, PovertyReturn(seat, tuple(rng.sample(legal_actions(state, seat)[0]["cards"], 3))))
     elif ph is Phase.PLAYING:
         for seat in range(4):                            # Schweinchen erklaeren, sobald moeglich
             if any(a["type"] == "schweinchen" for a in legal_actions(state, seat)) and rng.random() < 0.7:

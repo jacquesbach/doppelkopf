@@ -86,7 +86,7 @@ class SettingsAndStart(HttpBase):
     def test_rule_schema_is_public(self):
         res = self.client.get("/api/rule-schema")
         ids = [o["id"] for o in res.get_json()["options"]]
-        self.assertEqual(len(ids), 13)
+        self.assertEqual(len(ids), 14)
         self.assertEqual(ids[0], "dulle")
 
     def test_settings_host_only_and_normalized(self):

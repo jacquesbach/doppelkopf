@@ -23,7 +23,7 @@ export function legalAction(view, type) {
 
 /** Welcher modale Dialog ist für MICH gerade nötig? */
 export function activeDialog(view) {
-  for (const type of ["declare", "resolve", "baptize"]) {
+  for (const type of ["declare", "resolve", "baptize", "poverty_offer"]) {
     const action = legalAction(view, type);
     if (action) return { type, action };
   }
@@ -38,6 +38,9 @@ export function actingSeat(view) {
     case "reservation_query": return g.querySeat;
     case "reservation_resolution": return g.resolution?.seat ?? null;
     case "baptism": return g.baptismSeat;
+    case "poverty_pass": return g.poverty?.seat ?? null;
+    case "poverty_offer": return g.poverty?.offerSeat ?? null;
+    case "poverty_return": return g.poverty?.buyer ?? null;
     case "playing": return g.mandatoryAnnouncementSeat ?? g.turn;
     default: return null;
   }
@@ -91,6 +94,11 @@ export function myAutoplay(view) {
   return me != null && !!view.table.seats[me]?.autoplay;
 }
 
+/** Armut: Muss ich gerade Karten markieren (abgeben bzw. zurückgeben)? → die erlaubte Aktion oder null. */
+export function povertyPick(view) {
+  return legalAction(view, "poverty_pass") ?? legalAction(view, "poverty_return");
+}
+
 /** Ansage-Schaltflächen: [{level, label}] */
 export function announceOptions(view) {
   const action = legalAction(view, "announce");
@@ -132,6 +140,8 @@ export function seatBadges(view, seat) {
     if (g.weddingSeat === seat && g.kind === "wedding") badges.push("Hochzeit");
     if (g.weddingPartner === seat) badges.push("Partner");
   }
+  if (g.poverty?.seat === seat) badges.push("Armut");
+  if (g.poverty?.buyer === seat) badges.push("Übernahme");
   if (g.schweinchenSeat === seat) badges.push("Schweinchen");
   return badges;
 }
@@ -147,6 +157,8 @@ export function gameHeadline(view) {
   return nr;
 }
 
+const RESOLVE_TEXT = { pflichtsolo: "das Pflichtsolo", lustsolo: "das Lustsolo", poverty: "die Armut" };
+
 export function statusText(view) {
   const g = view?.game;
   if (!g) return "";
@@ -158,9 +170,21 @@ export function statusText(view) {
     case "reservation_query":
       return `${whoVerb} ${seat === me ? "musst" : "muss"} sich entscheiden: gesund oder Vorbehalt?`;
     case "reservation_resolution":
-      return `${whoVerb} ${seat === me ? "entscheidest" : "entscheidet"} über das ${g.resolution?.stage === "pflichtsolo" ? "Pflichtsolo" : "Lustsolo"}.`;
+      return `${whoVerb} ${seat === me ? "entscheidest" : "entscheidet"} über ${RESOLVE_TEXT[g.resolution?.stage] ?? "den Vorbehalt"}.`;
     case "baptism":
       return `${whoVerb} ${seat === me ? "taufst" : "tauft"} den Vorbehalt.`;
+    case "poverty_pass":
+      return seat === me
+        ? "Armut: Wähle 3 Karten, die du verdeckt abgibst."
+        : `Armut: ${whoVerb} wählt 3 Karten zum Abgeben.`;
+    case "poverty_offer":
+      return seat === me
+        ? `Armut von ${seatName(view, g.poverty?.seat)}: Übernimmst du sie?`
+        : `Armut von ${seatName(view, g.poverty?.seat)}: ${whoVerb} entscheidet, ob er sie übernimmt.`;
+    case "poverty_return":
+      return seat === me
+        ? "Du hast die Armut übernommen: Gib 3 beliebige Karten zurück."
+        : `${whoVerb} hat die Armut übernommen und gibt 3 Karten zurück.`;
     case "playing":
       if (view.table.holding) return "Stich beendet – weiter mit „Nächster Stich“.";
       if (g.mandatoryAnnouncementSeat != null)

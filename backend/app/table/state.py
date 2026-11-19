@@ -35,20 +35,24 @@ class TableState:
     takeover: int = DEFAULT_TAKEOVER  # Sekunden Inaktivitaet bis zur Bot-Uebernahme; 0 = nie (Einstellung des Hosts)
     touched: float | None = None      # Unix-Zeit der letzten Zustandsaenderung (Inaktivitaetsuhr, ueberlebt Neustarts)
     warning: dict | None = None       # {"seat", "until"}: Countdown laeuft, danach uebernimmt ein Bot fuer den Sitz
+    redeals: int = 0                  # wie oft in diesem Spiel neu gegeben wurde (Armut ohne Kaeufer); nicht gebucht
+    redeal_seat: int | None = None    # wessen Armut zuletzt niemand uebernahm
 
     def to_dict(self) -> dict:
         return {"seats": [dict(s) for s in self.seats], "profile": self.profile.to_dict(),
                 "round": self.round.to_dict(), "game": self.game.to_dict(), "gameNumber": self.game_number,
                 "recorded": self.recorded, "finished": self.finished, "gameStartedAt": self.game_started_at,
                 "holding": self.holding, "takeover": self.takeover, "touched": self.touched,
-                "warning": dict(self.warning) if self.warning else None}
+                "warning": dict(self.warning) if self.warning else None,
+                "redeals": self.redeals, "redealSeat": self.redeal_seat}
 
     @staticmethod
     def from_dict(d: dict) -> "TableState":
         return TableState([dict(s) for s in d["seats"]], RuleProfile.from_dict(d["profile"]),
                           RoundState.from_dict(d["round"]), GameState.from_dict(d["game"]), d["gameNumber"],
                           d["recorded"], d["finished"], d["gameStartedAt"], d.get("holding", False),
-                          d.get("takeover", DEFAULT_TAKEOVER), d.get("touched"), d.get("warning"))
+                          d.get("takeover", DEFAULT_TAKEOVER), d.get("touched"), d.get("warning"),
+                          d.get("redeals", 0), d.get("redealSeat"))
 
     def seat_of(self, member_id: int) -> int | None:
         return next((i for i, s in enumerate(self.seats) if s["memberId"] == member_id), None)
@@ -111,6 +115,21 @@ def settle(table: TableState) -> dict | None:
             "totals": list(table.round.totals)}
 
 
+def redeal_if_needed(table: TableState, rng: random.Random | None = None) -> bool:
+    """Armut ohne Kaeufer: Das Blatt wird eingepackt und mit demselben Geber neu gegeben.
+
+    Das abgebrochene Spiel zaehlt nicht (kein Eintrag in der Runde, kein Bockspiel verbraucht, Spielnummer bleibt).
+    """
+    game = table.game
+    if game.phase is not Phase.REDEAL:
+        return False
+    table.redeal_seat = game.redeal_seat
+    table.redeals += 1
+    table.game = start_next_game(table.round, table.profile, shuffled_deck(table.profile.deck_variant, rng))
+    table.game_started_at = _now()
+    return True
+
+
 def start_next(table: TableState, rng: random.Random | None = None) -> None:
     """Naechstes Spiel der Runde geben (nur nach gebuchtem, beendetem Spiel)."""
     if table.finished:
@@ -119,6 +138,7 @@ def start_next(table: TableState, rng: random.Random | None = None) -> None:
         raise RuleViolation("game_running", "Das aktuelle Spiel ist noch nicht beendet.")
     table.game = start_next_game(table.round, table.profile, shuffled_deck(table.profile.deck_variant, rng))
     table.game_number += 1
+    table.redeals, table.redeal_seat = 0, None
     table.recorded = False
     table.game_started_at = _now()
 
@@ -152,6 +172,7 @@ def view_for(table: TableState, member_id: int | None, version: int, now: float 
                            for i, s in enumerate(table.seats)],
                   "mySeat": seat, "gameNumber": table.game_number, "gameRecorded": table.recorded,
                   "holding": table.holding, "takeover": table.takeover,
+                  "redeals": table.redeals, "redealSeat": table.redeal_seat,
                   "takeoverWarning": _warning_view(table, now),
                   "finished": table.finished, "profileId": table.profile.id.value,
                   "deckVariant": table.profile.deck_variant.value,

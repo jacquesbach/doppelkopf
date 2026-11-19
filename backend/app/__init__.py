@@ -72,9 +72,14 @@ def create_app(test_config=None):
     app.register_blueprint(create_game_blueprint(service, access, notifier, chat=chat,
                                                      runner=runner, publisher=publisher, stats=stats),
                            url_prefix="/api")
+    from .lab.api import create_lab_blueprint
+    from .lab.sql import SqlLabAccess
+    admin_auth = AdminAuth(admin_password, app.config["SECRET_KEY"])
+    app.register_blueprint(create_lab_blueprint(service, SqlLabAccess(chat), publisher, admin_auth, runner),
+                           url_prefix="/api")
     app.register_blueprint(create_community_blueprint(CommunityDeps(
         suggestions=SuggestionService(SqlSuggestions()), phrases=PhraseService(SqlPhrases()), stats=stats,
-        tables=SqlTableOverview(), admin=AdminAuth(admin_password, app.config["SECRET_KEY"]),
+        tables=SqlTableOverview(), admin=admin_auth,
         captcha=CaptchaGuard(app.config["SECRET_KEY"]), secret=app.config["SECRET_KEY"],
         trust_proxy=bool(app.config.get("TRUST_PROXY")))), url_prefix="/api")
 
@@ -95,7 +100,7 @@ def _ensure_columns():
     """Entwicklungs-Datenbanken aus Meilenstein 0-1 um neue Spalten ergaenzen (kein Alembic noetig)."""
     from sqlalchemy import inspect, text
     wanted = {"room": [("settings_json", "TEXT NOT NULL DEFAULT '{}'"), ("is_public", "BOOLEAN NOT NULL DEFAULT 0"),
-                      ("takeover_seconds", "INTEGER NOT NULL DEFAULT 180")],
+                      ("takeover_seconds", "INTEGER NOT NULL DEFAULT 180"), ("lab_spec_json", "TEXT")],
               "game_snapshot": [("schema_version", "INTEGER NOT NULL DEFAULT 1")]}
     inspector = inspect(db.engine)
     with db.engine.begin() as conn:

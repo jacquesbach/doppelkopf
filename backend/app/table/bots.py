@@ -17,7 +17,11 @@ Bausteine (siehe auch ``pimc.py``):
   nicht fuer wenige Augen verbraucht.
 * **Partner erkennen** (``known_parties``): aus eigener Partei, Solo/Hochzeit, Ansagen (``clarified``) und gespielten
   Kreuz-Damen; sind alle Gegner bekannt, sind die uebrigen Partner (und umgekehrt).
-* **Vorbehalt:** nur mit beiden Kreuz-Damen (Hochzeit). Pflicht-/Lustsolo wird nie freiwillig gespielt.
+* **Vorbehalt:** nur mit beiden Kreuz-Damen (Hochzeit) oder - bei aktiver Hausregel - mit hoechstens 3 Truempfen (Armut).
+  Pflicht-/Lustsolo wird nie freiwillig gespielt.
+* **Armut:** abgegeben werden alle Truempfe (aufgefuellt mit den schwaechsten Fehlkarten); uebernommen wird ab 6 Truempfen
+  (ab 5 mit Kreuz-Dame); zurueckgegeben werden die schwaechsten Fehlkarten. Der Arme und der Kaeufer sind Re (``known_parties``);
+  die Stichproben-KI (pimc) kennt nur Kreuz-Damen-Parteien und bleibt in einer Armut aus.
 
 Staerke gemessen per Selbstspiel gegen die alte Grundstrategie: ``python3 -m tools.bot_tournament``.
 """
@@ -27,7 +31,7 @@ from collections import Counter
 
 from . import pimc
 from ..rules import (Announce, Baptize, Declare, DeclareSchweinchen, DeckVariant, GameState, Phase, PlayCard,
-                     Resolve, bot_view)
+                     PovertyOffer, PovertyPass, PovertyReturn, Resolve, bot_view)
 from ..rules.cards import Card, Rank, Suit, ranks_for
 from ..rules.game import Action
 from ..rules.tricks import Play, trick_winner_index
@@ -92,6 +96,58 @@ def _wants_announce(view: dict) -> bool:
     return hand_strength(view) >= _announce_threshold(view)
 
 
+# --- Armut (Hausregel) --------------------------------------------------------------------------
+
+_POVERTY_MAX = 3       # wie ``rules.game.POVERTY_MAX_TRUMPS``
+_POVERTY_CARDS = 3
+
+
+def _trump_count(view: dict) -> int:
+    cfg = _cfg(view)
+    return sum(is_trump(c, GameType.NORMAL, cfg) for c in _hand(view))
+
+
+def _queens_clubs(view: dict) -> int:
+    return sum(c.face == _QUEEN_CLUBS for c in _hand(view))
+
+
+def _is_poverty_game(view: dict) -> bool:
+    """Laufende Armut (Parteien stehen fest: Armer + Kaeufer = Re) - die Stichproben-KI kennt nur Kreuz-Damen-Parteien."""
+    p = view.get("poverty") or {}
+    return view.get("kind") == "poverty" and p.get("seat") is not None and p.get("buyer") is not None
+
+
+def _wants_poverty(view: dict) -> bool:
+    """Armut anmelden: Regel aktiv, hoechstens 3 Truempfe, und keine Hochzeit (beide Kreuz-Damen)."""
+    return bool(view["ruleOptions"].get("poverty")) and _trump_count(view) <= _POVERTY_MAX and _queens_clubs(view) < 2
+
+
+def _poverty_pass_ids(view: dict, ids: list[str]) -> list[str]:
+    """Alle Truempfe abgeben; auffuellen mit den wertlosesten, schwaechsten Fehlkarten."""
+    cfg = _cfg(view)
+    cards = [Card.from_id(i) for i in ids]
+    trumps = [c for c in cards if is_trump(c, GameType.NORMAL, cfg)]
+    side = sorted((c for c in cards if c not in trumps),
+                  key=lambda c: (c.value, -strength(c, GameType.NORMAL, cfg), c.id))
+    return [c.id for c in (trumps + side)[:_POVERTY_CARDS]]
+
+
+def _accepts_poverty(view: dict) -> bool:
+    n = _trump_count(view)
+    return n >= 6 or (n >= 5 and _queens_clubs(view) >= 1)
+
+
+def _poverty_return_ids(view: dict, ids: list[str]) -> list[str]:
+    """Schwaechste Fehlkarten zurueckgeben; reichen sie nicht, die schwaechsten Truempfe."""
+    cfg = _cfg(view)
+    cards = [Card.from_id(i) for i in ids]
+    side = sorted((c for c in cards if not is_trump(c, GameType.NORMAL, cfg)),
+                  key=lambda c: (c.value, -strength(c, GameType.NORMAL, cfg), c.id))
+    trumps = sorted((c for c in cards if is_trump(c, GameType.NORMAL, cfg)),
+                    key=lambda c: (-strength(c, GameType.NORMAL, cfg), c.id))
+    return [c.id for c in (side + trumps)[:_POVERTY_CARDS]]
+
+
 # --- Parteikenntnis -----------------------------------------------------------------------------
 
 def known_parties(view: dict, plays: list[Play]) -> dict[int, str | None]:
@@ -104,6 +160,9 @@ def known_parties(view: dict, plays: list[Play]) -> dict[int, str | None]:
         for s in range(4):
             known[s] = "re" if s == view["soloSeat"] else "kontra"
         return known
+    if _is_poverty_game(view):                    # Armut: der Arme und sein Kaeufer sind Re (oeffentlich bekannt)
+        re = {view["poverty"]["seat"], view["poverty"]["buyer"]}
+        return {s: "re" if s in re else "kontra" for s in range(4)}
     if view.get("weddingSeat") is not None:
         known[view["weddingSeat"]] = "re"
     if view.get("weddingPartner") is not None:
@@ -245,7 +304,7 @@ def _sampled_choice(view: dict, cands: list[Card], plays: list[Play], mem: Memor
     """Kartenwahl per Stichproben (siehe ``pimc``); ``None`` = Heuristik soll entscheiden."""
     gt, cfg, seat = _game_type(view), _cfg(view), view["seat"]
     hand = _hand(view)
-    if gt is not GameType.NORMAL or view.get("weddingSeat") is not None or len(cands) < 2:
+    if gt is not GameType.NORMAL or view.get("weddingSeat") is not None or len(cands) < 2 or _is_poverty_game(view):
         return None
     if len(hand) > TUNE["pimc_tricks"]:
         return None
@@ -282,7 +341,8 @@ _ANNOUNCE_CACHE: dict[str, int | None] = {}
 def _sampled_announce(view: dict, levels: list[int]) -> int | None:
     """Hoechste erlaubte Ansage, deren Erfolgschance (Stichproben) hoch genug ist; ``None`` = nicht ansagen."""
     gt, cfg, seat = _game_type(view), _cfg(view), view["seat"]
-    if gt is not GameType.NORMAL or view.get("weddingSeat") is not None or not view.get("myParty"):
+    if gt is not GameType.NORMAL or view.get("weddingSeat") is not None or not view.get("myParty") \
+            or _is_poverty_game(view):
         return None
     hand = _hand(view)
     plays = [Play(p["seat"], Card.from_dict(p["card"])) for p in view["currentTrick"]]
@@ -395,19 +455,27 @@ def choose_card(view: dict, playable_ids: list[str]) -> str:
 def choose_action(view: dict) -> Action | None:
     seat = view["seat"]
     acts = {a["type"]: a for a in view["legalActions"]}
-    if "declare" in acts:                       # Vorbehalt nur fuer die Hochzeit (beide Kreuz-Damen)
-        queens = sum(c.face == _QUEEN_CLUBS for c in _hand(view))
-        return Declare(seat, queens == 2)
-    if "resolve" in acts:
-        return Resolve(seat, False)
+    if "declare" in acts:                       # Vorbehalt nur fuer die Hochzeit (beide Kreuz-Damen) bzw. die Armut
+        return Declare(seat, _queens_clubs(view) == 2 or _wants_poverty(view))
+    if "resolve" in acts:                       # Solo nie; Armut nur ohne Hochzeitsblatt
+        return Resolve(seat, acts["resolve"].get("stage") == "poverty" and _queens_clubs(view) < 2)
     if "baptize" in acts:
         choices = acts["baptize"]["choices"]
         if "wedding" in choices:
             return Baptize(seat, "wedding")
+        if "poverty" in choices:
+            return Baptize(seat, "poverty")
         return Baptize(seat, _solo_choice(view, choices))
+    if "poverty_pass" in acts:
+        return PovertyPass(seat, tuple(_poverty_pass_ids(view, acts["poverty_pass"]["cards"])))
+    if "poverty_offer" in acts:
+        return PovertyOffer(seat, _accepts_poverty(view))
+    if "poverty_return" in acts:
+        return PovertyReturn(seat, tuple(_poverty_return_ids(view, acts["poverty_return"]["cards"])))
     if "announce" in acts and view["mandatoryAnnouncementSeat"] != seat:
         levels = acts["announce"]["levels"]
-        if TUNE["announce"] == "pimc" and _game_type(view) is GameType.NORMAL and view.get("weddingSeat") is None:
+        if TUNE["announce"] == "pimc" and _game_type(view) is GameType.NORMAL and view.get("weddingSeat") is None \
+                and not _is_poverty_game(view):
             level = _sampled_announce(view, levels)
             if level is not None:
                 return Announce(seat, level)

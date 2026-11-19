@@ -2,8 +2,9 @@
   import { SOLO_LABELS, SOLO_ORDER, SOLO_SUIT } from "../../lib/labels.js";
   import SuitIcon from "../cards/SuitIcon.svelte";
 
-  // Vorbehaltsabfrage, Pflicht-/Lustsolo-Entscheidung und Taufe. Der Server gibt vor, was erlaubt ist.
-  let { dialog, baptismKind = null, busy = false, act } = $props();
+  // Vorbehaltsabfrage, Pflicht-/Lustsolo-Entscheidung, Taufe und Armut. Der Server gibt vor, was erlaubt ist.
+  // `poverty`: Hausregel Armut ist am Tisch eingeschaltet; `poorName`: wer die Armut angemeldet hat.
+  let { dialog, baptismKind = null, busy = false, act, poverty = false, poorName = "" } = $props();
 
   const type = $derived(dialog.type);
   const stage = $derived(dialog.action.stage);
@@ -16,14 +17,20 @@
         ? "Dein Pflichtsolo: Welches Solo spielst du?"
         : baptismKind === "lustsolo"
           ? "Dein Lustsolo: Welches Solo spielst du?"
-          : "Du hast als Einziger einen Vorbehalt: Hochzeit oder Solo?",
+          : choices.includes("poverty")
+            ? choices.includes("wedding")
+              ? "Du hast als Einziger einen Vorbehalt: Hochzeit, Armut oder Solo?"
+              : "Du hast als Einziger einen Vorbehalt: Armut oder Solo?"
+            : "Du hast als Einziger einen Vorbehalt: Hochzeit oder Solo?",
   );
 </script>
 
 <section class="panel" aria-live="polite">
   {#if type === "declare"}
     <h2 class="nx-h2">Gesund oder Vorbehalt?</h2>
-    <p class="hint">Schau dir deine Karten an. Mit Vorbehalt kannst du später Hochzeit, Armut oder Solo anmelden.</p>
+    <p class="hint">
+      Schau dir deine Karten an. Mit Vorbehalt kannst du später {poverty ? "Hochzeit, Armut oder Solo" : "Hochzeit oder Solo"} anmelden.
+    </p>
     <div class="nx-btn-row">
       <button type="button" class="nx-btn nx-bg-green" disabled={busy} onclick={() => act({ type: "declare", reservation: false })}>
         GESUND
@@ -33,15 +40,19 @@
       </button>
     </div>
   {:else if type === "resolve"}
-    <h2 class="nx-h2">{stage === "pflichtsolo" ? "Pflichtsolo spielen?" : "Lustsolo spielen?"}</h2>
+    <h2 class="nx-h2">
+      {stage === "pflichtsolo" ? "Pflichtsolo spielen?" : stage === "poverty" ? "Armut anmelden?" : "Lustsolo spielen?"}
+    </h2>
     <p class="hint">
       {stage === "pflichtsolo"
         ? "Du hast noch kein Pflichtsolo gespielt. Möchtest du es mit diesem Blatt jetzt spielen?"
-        : "Möchtest du ein freiwilliges Solo (Lustsolo) spielen?"}
+        : stage === "poverty"
+          ? "Du hast höchstens 3 Trümpfe. Möchtest du eine Armut anmelden und 3 Karten verdeckt weitergeben? Findet sich kein Käufer, wird neu gegeben."
+          : "Möchtest du ein freiwilliges Solo (Lustsolo) spielen?"}
     </p>
     <div class="nx-btn-row">
       <button type="button" class="nx-btn nx-bg-coral" disabled={busy} onclick={() => act({ type: "resolve", accept: true })}>
-        JA, SOLO SPIELEN
+        {stage === "poverty" ? "JA, ARMUT ANMELDEN" : "JA, SOLO SPIELEN"}
       </button>
       <button type="button" class="nx-btn nx-bg-white" disabled={busy} onclick={() => act({ type: "resolve", accept: false })}>
         NEIN
@@ -56,12 +67,32 @@
           HOCHZEIT
         </button>
       {/if}
+      {#if choices.includes("poverty")}
+        <button type="button" class="nx-btn nx-bg-yellow wide" disabled={busy} onclick={() => act({ type: "baptize", choice: "poverty" })}>
+          ARMUT (3 KARTEN WEITERGEBEN)
+        </button>
+      {/if}
       {#each SOLO_ORDER.filter((s) => choices.includes(s)) as solo (solo)}
         <button type="button" class="nx-btn nx-btn-sm solo" disabled={busy} onclick={() => act({ type: "baptize", choice: solo })}>
           {#if SOLO_SUIT[solo]}<SuitIcon suit={SOLO_SUIT[solo]} size="1.2em" />{/if}
           {SOLO_LABELS[solo]}
         </button>
       {/each}
+    </div>
+  {:else if type === "poverty_offer"}
+    <h2 class="nx-h2">Armut übernehmen?</h2>
+    <p class="hint">
+      {poorName || "Ein Mitspieler"} hat eine Armut angemeldet und 3 Karten verdeckt abgelegt. Übernimmst du sie, kommen sie in dein
+      Blatt – danach gibst du 3 beliebige Karten zurück. Ihr beide spielt dann zusammen als Re gegen die anderen zwei. Übernimmt niemand,
+      wird neu gegeben.
+    </p>
+    <div class="nx-btn-row">
+      <button type="button" class="nx-btn nx-bg-coral" disabled={busy} onclick={() => act({ type: "poverty_offer", accept: true })}>
+        JA, ÜBERNEHMEN
+      </button>
+      <button type="button" class="nx-btn nx-bg-white" disabled={busy} onclick={() => act({ type: "poverty_offer", accept: false })}>
+        NEIN
+      </button>
     </div>
   {/if}
 </section>

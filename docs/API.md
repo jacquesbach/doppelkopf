@@ -47,6 +47,8 @@ Entfernt gegenüber Meilenstein 0: `/play`, `/announce`, globales `/history` (li
 ### Aktionen (`type`)
 `declare {reservation: bool}` · `resolve {accept: bool}` · `baptize {choice: "wedding" | "solo_clubs" | ...}` ·
 `play_card {cardId}` · `announce {level: 0..4}` (0 = Re/Kontra, 1–4 = keine 90/60/30/schwarz) · `schweinchen {}`.
+Hausregel Armut (`ruleOptions.poverty`): `baptize {choice: "poverty"}` bzw. `resolve {accept}` in der Stufe `poverty` · `poverty_pass {cardIds: [3 IDs]}` ·
+`poverty_offer {accept: bool}` · `poverty_return {cardIds: [3 IDs]}`.
 Welche Aktionen gerade erlaubt sind, steht in `game.legalActions` der eigenen Sicht (inkl. erlaubter Karten und Ansage-Stufen).
 `expectedVersion` (Version aus der letzten Sicht) schützt vor veralteten Zügen; `actionId` (≤ 64 Zeichen) macht Wiederholungen idempotent
 (`duplicate: true`, keine zweite Wirkung, keine zweite Benachrichtigung).
@@ -57,6 +59,11 @@ Welche Aktionen gerade erlaubt sind, steht in `game.legalActions` der eigenen Si
 Für die Oberfläche relevante Felder in `game`: `hand` (bereits sortiert: Trümpfe nach Stärke, dann Fehlfarben ♣♠♥♦), `legalActions`,
 `baptismKind` (`pflichtsolo`/`pflichtsolo_forced`/`lustsolo`, `null` = einziger Vorbehalt: Hochzeit oder Solo), `currentTrick`, `lastTrick`,
 `announcements`, `tricksWon`, `handCounts`, `mandatoryAnnouncementSeat`.
+Armut: Phasen `poverty_pass` → `poverty_offer` → `poverty_return`; `game.poverty = {seat, buyer, offerSeat}` (Armut-Anmelder, Käufer, wer gerade gefragt wird);
+`legalActions`: `poverty_pass {count, cards}`, `poverty_offer`, `poverty_return {count, cards, received}` (`received` = soeben erhaltene Karten, nur dem Käufer);
+Beide Armut-Partner sind Re (`clarified` von Beginn an gesetzt). Ohne Käufer gibt der Tisch sofort neu (gleicher Geber, gleiche Spielnummer);
+`table.redeals` zählt die Neuwürfe dieses Spiels, `table.redealSeat` nennt den Armen, dessen Armut niemand wollte.
+`game.povertyPassed` (nur der Arme, solange gefragt wird: seine abgelegten Karten); `kind: "poverty"` bzw. `baptize`-Auswahl `"poverty"`.
 Nach Spielende werden Stiche, Parteien und Wertung aufgedeckt. Die Stille Hochzeit bleibt bis Spielende verdeckt.
 
 ### Fehlercodes
@@ -76,7 +83,7 @@ Countdown. Kommt der Spieler zurück, übernimmt er wieder. Tische ohne Aktivit�
 
 ### Ereignisse und Stiche in der Sicht
 - `game.events`: öffentliche Ereignisse des laufenden Spiels, aufsteigende `id`: `reservation`, `solo`, `wedding`, `wedding_clarified`,
-  `announce` (`party`, `level`), `schweinchen`, `doppelkopf` (`points`), `fox_caught` (`seat` = Fänger, `victim`),
+  `poverty` (`seat`), `poverty_taken` (`seat` = Armer, `buyer`), `poverty_void` (`seat`; erscheint nur kurz, danach beginnt das Protokoll des neuen Blatts von vorn), `announce` (`party`, `level`), `schweinchen`, `doppelkopf` (`points`), `fox_caught` (`seat` = Fänger, `victim`),
   `charlie_last_trick`. „Fuchs gefangen“ wird nur gemeldet, wenn beide Kreuz-Damen gespielt sind oder eine Hochzeit geklärt ist (sonst würde es verdeckte
   Parteien verraten); die Wertung am Spielende nennt ihn immer.
 - Nach Spielende zusätzlich `game.tricks` (alle Stiche in Spielreihenfolge) und `game.reSeats`; das Spielprotokoll enthält `reSeats` je Spiel.
@@ -105,6 +112,10 @@ Alle Fehler: `{"error": "Text", "code": "..."}`. Die Browser-Kennung (`X-Client-
   - `GET /admin/stats` → `tablesTotal, tablesStarted, tablesNeverStarted, last24h/7d/30d, againstBotsOnly|withHumans {tables, minutes{avg,median,max}, games{…}}, byHumans {1..4}, minutes, games, gamesBuckets, gamesTotal, roundsTotal, perDay[14]`.
   - `GET|POST /admin/phrases`, `PUT|DELETE /admin/phrases/<id>`, `POST /admin/phrases/<id>/move {direction: up|down}`.
   - `GET /admin/suggestions` (inkl. ausgeblendete, mit `status`), `POST /admin/suggestions/<id>/status {status: visible|hidden}`, `PUT /admin/suggestions/<id> {title, description}`, `DELETE /admin/suggestions/<id>`.
+  - **Test-Tisch** (Szenario-Labor, siehe `IMPLEMENTATION_NOTES.md`):
+    - `GET /admin/lab/presets` → `{presets: [{id, title, description, scenario}]}`.
+    - `POST /admin/lab/tables {scenario}` → 201 `{code, version, seats: [{seat, memberId, name, isBot, token|null}]}`; Token nur für Plätze, die der Betreiber selbst spielt. Szenario: `{settings, dealer 0–3, hands {"0": ["Q♣", …]}, seats [{name, bot}] ×4, round {normalGamesPlayed, bockRemaining, pflichtsoloDone[4], totals[4]}, advance none|playing|tricks, tricks}`. Nicht angegebene Karten werden zufällig verteilt; Fehler → 400 `bad_scenario` bzw. Regelfehler.
+    - `POST /admin/lab/tables/<code>/reset {scenario?}` → Tisch neu aufbauen (ohne `scenario`: gespeichertes Szenario; die Besetzung bleibt). `POST /admin/lab/tables/<code>/open` → neue Tokens für die eigenen Plätze. `DELETE /admin/lab/tables/<code>`. `GET /admin/lab/tables` → Liste.
 
 ## Betrieb
 - `ADMIN_PASSWORD` schaltet das Betreiber-Backend (`/admin` im Frontend) frei; `APP_ENV=production` verlangt dafür mindestens 10 Zeichen.

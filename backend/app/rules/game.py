@@ -3,6 +3,11 @@
 Phasen: Geben -> Vorbehalte abfragen -> Vorbehalte aufloesen -> (Taufe) -> Karten spielen
 -> Auswerten. Die Hochzeitsklaerung laeuft *innerhalb* der Kartenspielphase.
 
+Hausregel "Armut" (``RuleOptions.poverty``): Ein Vorbehalt kann statt Solo/Hochzeit eine Armut sein. Dann folgen
+Karten abgeben (3, verdeckt) -> reihum Kaeufer fragen -> Kaeufer gibt 3 beliebige Karten zurueck -> Normalspiel, in dem
+der Arme und der Kaeufer als Re-Partei gegen die beiden anderen (Kontra) spielen. Uebernimmt niemand die Armut, endet das
+Spiel in der Phase ``REDEAL``: Der Tisch gibt mit demselben Geber neu (der Regelkern selbst mischt nie).
+
 Der Regelkern kennt weder Flask noch Datenbank noch Zeit. Zufall steckt nur in der
 vorab gemischten Kartenreihenfolge, die ``new_game`` bekommt.
 """
@@ -27,11 +32,18 @@ from .trump import SOLO_TYPES, GameType, TrumpConfig, is_trump, lead_kind, trump
 _QUEEN_CLUBS = (Rank.QUEEN, Suit.CLUBS)
 _FOX = (Rank.ACE, Suit.DIAMONDS)
 
+POVERTY_MAX_TRUMPS = 3     # Armut: hoechstens so viele Truempfe auf der Hand
+POVERTY_CARDS = 3          # Armut: so viele Karten werden immer weitergegeben (und zurueckgegeben)
+
 
 class Phase(str, Enum):
     RESERVATION_QUERY = "reservation_query"            # TSR 4.1.2: gesund / Vorbehalt
     RESERVATION_RESOLUTION = "reservation_resolution"  # TSR 4.1.5-4.1.7: Pflichtsolo? Lustsolo?
     BAPTISM = "baptism"                                # Taufe bzw. Bekanntgabe des Solos
+    POVERTY_PASS = "poverty_pass"                      # Armut: der Arme legt 3 Karten verdeckt ab
+    POVERTY_OFFER = "poverty_offer"                    # Armut: reihum fragen, wer sie uebernimmt
+    POVERTY_RETURN = "poverty_return"                  # Armut: der Kaeufer gibt 3 beliebige Karten zurueck
+    REDEAL = "redeal"                                  # Armut ohne Kaeufer: das Blatt wird eingepackt, der Tisch gibt neu
     PLAYING = "playing"
     FINISHED = "finished"
 
@@ -44,6 +56,7 @@ class GameKind(str, Enum):
     LUSTSOLO = "lustsolo"
     WEDDING = "wedding"                          # angemeldete Hochzeit (kann zum Karo-Solo werden)
     SILENT_WEDDING = "silent_wedding"            # Stille Hochzeit (TSR 4.4.5)
+    POVERTY = "poverty"                          # Armut (Hausregel): Normalspiel nach dem Kartentausch
 
 
 # --- Aktionen -----------------------------------------------------------------------------
@@ -88,7 +101,29 @@ class DeclareSchweinchen:
     seat: int
 
 
-Action = Declare | Resolve | Baptize | PlayCard | Announce | DeclareSchweinchen
+@dataclass(frozen=True)
+class PovertyPass:
+    """Armut: der Arme legt genau 3 Karten verdeckt ab (auch mit weniger als 3 Truempfen)."""
+    seat: int
+    card_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PovertyOffer:
+    """Armut: Antwort auf die Frage, ob man die Armut uebernimmt."""
+    seat: int
+    accept: bool
+
+
+@dataclass(frozen=True)
+class PovertyReturn:
+    """Armut: der Kaeufer gibt 3 beliebige Karten seiner (nun groesseren) Hand an den Armen zurueck."""
+    seat: int
+    card_ids: tuple[str, ...]
+
+
+Action = (Declare | Resolve | Baptize | PlayCard | Announce | DeclareSchweinchen
+          | PovertyPass | PovertyOffer | PovertyReturn)
 
 
 # --- Zustand ------------------------------------------------------------------------------
@@ -105,7 +140,7 @@ class GameState:
     # Vorbehaltsabfrage
     declarations: list[str | None] = field(default_factory=lambda: [None] * 4)
     query_seat: int | None = None
-    resolution_stage: str | None = None          # 'pflichtsolo' | 'lustsolo'
+    resolution_stage: str | None = None          # 'pflichtsolo' | 'lustsolo' | 'poverty'
     resolution_queue: list[int] = field(default_factory=list)
     baptism_seat: int | None = None
     baptism_kind: GameKind | None = None         # None = einziger Vorbehalt, frei waehlbar
@@ -117,6 +152,13 @@ class GameState:
     wedding_partner: int | None = None
     wedding_clarifying_trick: int | None = None  # 1..3, sobald die Hochzeit geklaert ist
     re_seats: list[int] = field(default_factory=list)
+    # Armut (Hausregel)
+    poverty_seat: int | None = None              # wer die Armut angemeldet hat
+    poverty_cards: list[Card] = field(default_factory=list)   # die verdeckt abgelegten Karten (nur dem Server bekannt)
+    poverty_queue: list[int] = field(default_factory=list)    # wer noch gefragt wird (im Uhrzeigersinn)
+    poverty_buyer: int | None = None             # wer die Armut uebernommen hat
+    poverty_received: list[str] = field(default_factory=list)  # Karten-IDs, die der Kaeufer bekam (nur seine Anzeige)
+    redeal_seat: int | None = None               # Phase REDEAL: wessen Armut niemand wollte
     # Kartenspiel
     turn: int | None = None
     current_trick: list[Play] = field(default_factory=list)
@@ -187,6 +229,9 @@ class GameState:
             "gameType": self.game_type.value, "kind": self.kind.value, "soloSeat": self.solo_seat,
             "weddingSeat": self.wedding_seat, "weddingPartner": self.wedding_partner,
             "weddingClarifyingTrick": self.wedding_clarifying_trick, "reSeats": list(self.re_seats),
+            "povertySeat": self.poverty_seat, "povertyCards": [c.to_dict() for c in self.poverty_cards],
+            "povertyQueue": list(self.poverty_queue), "povertyBuyer": self.poverty_buyer,
+            "povertyReceived": list(self.poverty_received), "redealSeat": self.redeal_seat,
             "turn": self.turn,
             "currentTrick": [{"seat": p.seat, "card": p.card.to_dict()} for p in self.current_trick],
             "tricks": [t.to_dict() for t in self.tricks],
@@ -218,6 +263,12 @@ class GameState:
         state.wedding_partner = d["weddingPartner"]
         state.wedding_clarifying_trick = d["weddingClarifyingTrick"]
         state.re_seats = list(d["reSeats"])
+        state.poverty_seat = d.get("povertySeat")
+        state.poverty_cards = [Card.from_dict(c) for c in d.get("povertyCards", [])]
+        state.poverty_queue = list(d.get("povertyQueue", []))
+        state.poverty_buyer = d.get("povertyBuyer")
+        state.poverty_received = list(d.get("povertyReceived", []))
+        state.redeal_seat = d.get("redealSeat")
         state.turn = d["turn"]
         state.current_trick = [Play(p["seat"], Card.from_dict(p["card"])) for p in d["currentTrick"]]
         state.tricks = [CompletedTrick.from_dict(t) for t in d["tricks"]]
@@ -292,7 +343,8 @@ def _dispatch(state: GameState, action: Action) -> None:
     if not 0 <= action.seat <= 3:
         raise RuleViolation("bad_seat", "Unbekannter Sitz.")
     handlers = {Declare: _declare, Resolve: _resolve, Baptize: _baptize,
-                PlayCard: _play_card, Announce: _announce, DeclareSchweinchen: _schweinchen}
+                PlayCard: _play_card, Announce: _announce, DeclareSchweinchen: _schweinchen,
+                PovertyPass: _poverty_pass, PovertyOffer: _poverty_offer, PovertyReturn: _poverty_return}
     handlers[type(action)](state, action)
 
 
@@ -336,6 +388,11 @@ def _advance_resolution(state: GameState, holders: list[int] | None = None) -> N
         if state.resolution_stage == "pflichtsolo":
             state.resolution_stage = "lustsolo"
             state.resolution_queue = [s for s in holders if state.pflichtsolo_done[s]]
+        elif state.resolution_stage == "lustsolo" and state.options.poverty:
+            # Hausregel Armut: Nach allen Soli kommt die Armut zum Zuge (vor der Hochzeit, die bei mehreren
+            # Vorbehalten ohnehin verfaellt). Gefragt werden nur Vorbehalte, die eine Armut sein koennen.
+            state.resolution_stage = "poverty"
+            state.resolution_queue = [s for s in holders if can_declare_poverty(state, s)]
         else:
             # Niemand will ein Solo: kein Vorbehalt kommt zum Zuge (Hochzeit kann bei mehreren
             # Vorbehalten nie zum Zuge kommen, TSR 4.1.6) -> Normalspiel. ANNAHME, siehe Regelmatrix.
@@ -350,6 +407,10 @@ def _resolve(state: GameState, a: Resolve) -> None:
     if not state.resolution_queue or a.seat != state.resolution_queue[0]:
         raise RuleViolation("not_your_turn", "Du wirst gerade nicht gefragt.")
     _log(state, "resolved", seat=a.seat, stage=state.resolution_stage, accept=a.accept)
+    if a.accept and state.resolution_stage == "poverty":
+        state.resolution_stage, state.resolution_queue = None, []
+        _start_poverty(state, a.seat)
+        return
     if a.accept:                                       # TSR 4.1.7: Abfrage endet beim ersten 'ja'
         state.baptism_seat = a.seat
         state.baptism_kind = (GameKind.PFLICHTSOLO if state.resolution_stage == "pflichtsolo"
@@ -358,6 +419,16 @@ def _resolve(state: GameState, a: Resolve) -> None:
         return
     state.resolution_queue.pop(0)
     _advance_resolution(state)
+
+
+def poverty_trumps(state: GameState, seat: int) -> int:
+    """Truempfe auf der Hand im Normalspiel (so zaehlt eine Armut; ein Schweinchen ist noch nicht erklaert)."""
+    return sum(is_trump(c, GameType.NORMAL, state.trump_cfg) for c in state.hands[seat])
+
+
+def can_declare_poverty(state: GameState, seat: int) -> bool:
+    """Armut (Hausregel): hoechstens 3 Truempfe auf der Hand."""
+    return state.options.poverty and poverty_trumps(state, seat) <= POVERTY_MAX_TRUMPS
 
 
 def _baptize(state: GameState, a: Baptize) -> None:
@@ -372,6 +443,12 @@ def _baptize(state: GameState, a: Baptize) -> None:
         state.wedding_seat = a.seat
         _begin_play(state, GameType.NORMAL, GameKind.WEDDING)
         return
+    if a.choice == "poverty":
+        if state.baptism_kind is not None or not can_declare_poverty(state, a.seat):
+            raise RuleViolation("poverty_not_allowed",
+                                "Armut nur als einziger Vorbehalt, mit hoechstens 3 Truempfen und wenn die Regel aktiv ist.")
+        _start_poverty(state, a.seat)
+        return
     try:
         game_type = GameType(a.choice)
     except ValueError:
@@ -385,16 +462,83 @@ def _baptize(state: GameState, a: Baptize) -> None:
     _begin_play(state, game_type, kind)
 
 
+def _start_poverty(state: GameState, seat: int) -> None:
+    state.phase, state.baptism_seat, state.baptism_kind = Phase.POVERTY_PASS, None, None
+    state.poverty_seat = seat
+    _log(state, "poverty_declared", seat=seat)
+
+
+def _check_card_ids(hand: list[Card], card_ids: tuple[str, ...]) -> list[Card]:
+    """Genau 3 verschiedene Karten der Hand (in Handreihenfolge) - sonst Regelverletzung."""
+    ids = list(card_ids)
+    if len(ids) != POVERTY_CARDS or len(set(ids)) != POVERTY_CARDS:
+        raise RuleViolation("poverty_bad_cards", f"Es muessen genau {POVERTY_CARDS} verschiedene Karten sein.")
+    chosen = [c for c in hand if c.id in ids]
+    if len(chosen) != POVERTY_CARDS:
+        raise RuleViolation("card_not_in_hand", "Diese Karte hast du nicht auf der Hand.")
+    return chosen
+
+
+def _poverty_pass(state: GameState, a: PovertyPass) -> None:
+    _require_phase(state, Phase.POVERTY_PASS)
+    if a.seat != state.poverty_seat:
+        raise RuleViolation("not_your_turn", "Nur der Spieler mit der Armut gibt Karten ab.")
+    chosen = _check_card_ids(state.hands[a.seat], a.card_ids)
+    for c in chosen:
+        state.hands[a.seat].remove(c)
+    state.poverty_cards = chosen
+    state.poverty_queue = [(a.seat + k) % 4 for k in range(1, 4)]      # im Uhrzeigersinn
+    state.phase = Phase.POVERTY_OFFER
+    _log(state, "poverty_passed", seat=a.seat)                          # bewusst ohne Kartenangaben
+
+
+def _poverty_offer(state: GameState, a: PovertyOffer) -> None:
+    _require_phase(state, Phase.POVERTY_OFFER)
+    if not state.poverty_queue or a.seat != state.poverty_queue[0]:
+        raise RuleViolation("not_your_turn", "Du wirst gerade nicht gefragt.")
+    _log(state, "poverty_answer", seat=a.seat, accept=a.accept)
+    if a.accept:
+        state.poverty_buyer = a.seat
+        state.hands[a.seat].extend(state.poverty_cards)
+        state.poverty_received = [c.id for c in state.poverty_cards]
+        state.poverty_cards, state.poverty_queue = [], []
+        state.phase = Phase.POVERTY_RETURN
+        _log(state, "poverty_taken", seat=state.poverty_seat, buyer=a.seat)
+        return
+    state.poverty_queue.pop(0)
+    if not state.poverty_queue:                        # niemand will: Blatt einpacken, der Tisch gibt neu
+        state.hands[state.poverty_seat].extend(state.poverty_cards)
+        state.poverty_cards = []
+        state.redeal_seat = state.poverty_seat
+        state.phase, state.turn = Phase.REDEAL, None
+        _log(state, "poverty_void", seat=state.poverty_seat)
+
+
+def _poverty_return(state: GameState, a: PovertyReturn) -> None:
+    _require_phase(state, Phase.POVERTY_RETURN)
+    if a.seat != state.poverty_buyer:
+        raise RuleViolation("not_your_turn", "Nur wer die Armut uebernommen hat, gibt Karten zurueck.")
+    chosen = _check_card_ids(state.hands[a.seat], a.card_ids)
+    for c in chosen:
+        state.hands[a.seat].remove(c)
+    state.hands[state.poverty_seat].extend(chosen)
+    state.poverty_received = []
+    _log(state, "poverty_returned", seat=a.seat)
+    _begin_play(state, GameType.NORMAL, GameKind.POVERTY)
+
+
 def _begin_play(state: GameState, game_type: GameType, kind: GameKind) -> None:
     state.game_type, state.kind = game_type, kind
     if game_type.is_solo:
         state.re_seats = [state.solo_seat]
+    elif kind is GameKind.POVERTY:                     # Armut: der Arme und sein Kaeufer sind Re, unabhaengig von den Damen
+        state.re_seats = sorted([state.poverty_seat, state.poverty_buyer])
     elif kind is GameKind.WEDDING:
         state.re_seats = [state.wedding_seat]
     else:
         state.re_seats = [s for s in range(4)
                           if any(c.face == _QUEEN_CLUBS for c in state.hands[s])]
-        if len(state.re_seats) == 1:                   # beide Kreuz-Damen, aber 'gesund' (TSR 4.4.5)
+        if len(state.re_seats) == 1 and kind is GameKind.NORMAL:   # beide Kreuz-Damen, aber 'gesund' (TSR 4.4.5)
             state.kind = GameKind.SILENT_WEDDING
     # Aufspielpflicht: Pflichtsolist (TSR 4.2.2); sonst linker Nachbar des Gebers (4.3.1, 5.1.1)
     solo_leads = state.kind in (GameKind.PFLICHTSOLO, GameKind.PFLICHTSOLO_FORCED) or (
@@ -406,6 +550,9 @@ def _begin_play(state: GameState, game_type: GameType, kind: GameKind) -> None:
             state.clarified[s] = (Party.RE if s == state.solo_seat else Party.KONTRA).value
     elif state.kind is GameKind.WEDDING:
         state.clarified[state.wedding_seat] = Party.RE.value
+    elif state.kind is GameKind.POVERTY:               # die Partnerschaft ist durch die Uebernahme fuer alle klar
+        for s in range(4):
+            state.clarified[s] = (Party.RE if s in state.re_seats else Party.KONTRA).value
     _log(state, "play_started", gameType=state.game_type.value, kind=state.kind.value,
          soloSeat=state.solo_seat, weddingSeat=state.wedding_seat, leader=state.turn)
 
@@ -440,7 +587,7 @@ def _queens_of_clubs_played_by(state: GameState, seat: int) -> int:
 
 def _note_clarification_by_card(state: GameState, seat: int, card: Card, lead: Card | None) -> None:
     """Oeffentliche Parteiklaerung nach TSR 5.5.1 Nr. 3 und 5 (Normalspiel, Stille Hochzeit)."""
-    if state.game_type.is_solo or state.kind is GameKind.WEDDING:
+    if state.game_type.is_solo or state.kind in (GameKind.WEDDING, GameKind.POVERTY):
         return
     if card.face == _QUEEN_CLUBS:
         state.clarified[seat] = Party.RE.value
@@ -592,7 +739,18 @@ def legal_actions(state: GameState, seat: int) -> list[dict]:
         choices = [t.value for t in SOLO_TYPES]
         if state.baptism_kind is None and sum(c.face == _QUEEN_CLUBS for c in state.hands[seat]) == 2:
             choices.append("wedding")
+        if state.baptism_kind is None and can_declare_poverty(state, seat):
+            choices.append("poverty")
         actions.append({"type": "baptize", "choices": choices})
+    elif state.phase is Phase.POVERTY_PASS and seat == state.poverty_seat:
+        actions.append({"type": "poverty_pass", "count": POVERTY_CARDS,
+                        "cards": [c.id for c in sorted_hand(state, seat)]})
+    elif state.phase is Phase.POVERTY_OFFER and state.poverty_queue and seat == state.poverty_queue[0]:
+        actions.append({"type": "poverty_offer", "options": [True, False]})
+    elif state.phase is Phase.POVERTY_RETURN and seat == state.poverty_buyer:
+        actions.append({"type": "poverty_return", "count": POVERTY_CARDS,
+                        "cards": [c.id for c in sorted_hand(state, seat)],
+                        "received": list(state.poverty_received)})
     elif state.phase is Phase.PLAYING:
         if seat == state.turn and state.mandatory_pending != seat:
             lead = state.current_trick[0].card if state.current_trick else None
@@ -616,6 +774,12 @@ def public_events(state: GameState) -> list[dict]:
         kind = e["type"]
         if kind == "declared" and e["answer"] == "reservation":
             out.append({"id": e["seq"], "type": "reservation", "seat": e["seat"]})
+        elif kind == "poverty_declared":
+            out.append({"id": e["seq"], "type": "poverty", "seat": e["seat"]})
+        elif kind == "poverty_taken":
+            out.append({"id": e["seq"], "type": "poverty_taken", "seat": e["seat"], "buyer": e["buyer"]})
+        elif kind == "poverty_void":
+            out.append({"id": e["seq"], "type": "poverty_void", "seat": e["seat"]})
         elif kind == "play_started":
             if state.game_type.is_solo and e.get("soloSeat") is not None:
                 out.append({"id": e["seq"], "type": "solo", "seat": e["soloSeat"], "gameType": e["gameType"]})
@@ -645,6 +809,9 @@ def _public(state: GameState) -> dict:
         "resolution": {"stage": state.resolution_stage, "seat": state.resolution_queue[0]
                        if state.resolution_queue else None},
         "baptismSeat": state.baptism_seat, "turn": state.turn,
+        "poverty": {"seat": state.poverty_seat, "buyer": state.poverty_buyer,
+                    "offerSeat": state.poverty_queue[0] if state.phase is Phase.POVERTY_OFFER and state.poverty_queue
+                    else None},
         "baptismKind": state.baptism_kind.value if state.baptism_kind else None,   # None = frei (einziger Vorbehalt)
         "gameType": state.game_type.value if state.phase in (Phase.PLAYING, Phase.FINISHED) else None,
         "kind": kind_public,
@@ -704,6 +871,8 @@ def player_view(state: GameState, seat: int) -> dict:
         "myParty": party.value if party else None,
         "legalActions": legal_actions(state, seat),
     })
+    if state.phase is Phase.POVERTY_OFFER and seat == state.poverty_seat:     # die eigenen, abgelegten Karten
+        view["povertyPassed"] = [c.to_dict() for c in state.poverty_cards]
     if state.phase is Phase.FINISHED:  # nach Spielende ist alles aufgedeckt
         view["score"] = state.score.to_dict()
         view["tricks"] = [t.to_dict() for t in state.tricks]

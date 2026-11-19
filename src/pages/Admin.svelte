@@ -5,6 +5,7 @@
   import AdminStats from "../components/admin/AdminStats.svelte";
   import AdminPhrases from "../components/admin/AdminPhrases.svelte";
   import AdminSuggestions from "../components/admin/AdminSuggestions.svelte";
+  import AdminLab from "../components/admin/AdminLab.svelte";
   import { api } from "../lib/services.js";
 
   // Das Token liegt nur im Tab-Speicher (sessionStorage): Tab zu = abgemeldet.
@@ -14,6 +15,7 @@
     ["stats", "STATISTIK"],
     ["phrases", "SPRÜCHE"],
     ["suggestions", "VORSCHLÄGE"],
+    ["lab", "TEST-TISCH"],
   ];
 
   let enabled = $state(null); // null = prüfe
@@ -122,6 +124,8 @@
           <AdminStats {token} onAuthLost={authLost} />
         {:else if tab === "phrases"}
           <AdminPhrases {token} onAuthLost={authLost} />
+        {:else if tab === "lab"}
+          <AdminLab {token} onAuthLost={authLost} />
         {:else}
           <AdminSuggestions {token} onAuthLost={authLost} />
         {/if}

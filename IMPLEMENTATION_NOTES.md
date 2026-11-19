@@ -260,3 +260,47 @@ Host am Rundenende) neben „Ergebnis anzeigen“ und „Stiche ansehen“, wenn
 - **Zwei Tipps zum Spielen (nur Touch-Geräte):** `Hand.svelte` erkennt per `(hover: none) and (pointer: coarse)`, ob es ein Touch-Gerät ist. Erster Tipp wählt die Karte aus (sie ragt heraus), ein zweiter Tipp auf dieselbe Karte spielt sie. Tipp daneben oder Ende des Zugs hebt die Auswahl auf. Mit Maus genügt ein Klick. Die Logik steht als reine Funktionen in `src/lib/selection.js` (Tests: `tests/selection.test.js`).
 - **Aufbau:** Schlanker Kopf (Spielart, CHAT, MENÜ mit den übrigen Knöpfen), Mitspieler mit kleinem Kartenfächer, Stichfläche als Kasten, eigene Leiste, einklappbare Ansagen (`ActionBar.svelte`), Hand unten.
 - **Kartenrücken:** Neubrutalism-Design (Gelb mit Korallen-Streifen, schwarze Konturen, Raute), identisch auf Handy und Desktop. `CardBack.svelte` vergibt je Instanz eine eigene Muster-ID; eine gemeinsame ID wäre ins Leere gelaufen, sobald die erste Instanz in einem ausgeblendeten Bereich steht.
+
+---
+
+## Hausregel „Armut“ (neu)
+
+Zuschaltbar als Option `poverty` (Gruppe „Hausregeln“, Standard aus). Ablauf: **Vorbehalt → Armut anmelden → 3 Karten verdeckt abgeben → reihum Käufer
+fragen → Käufer gibt 3 beliebige Karten zurück → Normalspiel** (`GameKind.POVERTY`) mit **Armem + Käufer automatisch als Re** gegen die anderen beiden.
+Übernimmt niemand die Armut, wird **neu gegeben** (gleicher Geber, das Spiel zählt nicht).
+
+- **Regelkern** (`backend/app/rules/game.py`): neue Phasen `poverty_pass`, `poverty_offer`, `poverty_return`; Aktionen `PovertyPass`, `PovertyOffer`, `PovertyReturn`;
+  Phase `redeal` (der Regelkern mischt nie; `table/state.py: redeal_if_needed` gibt neu und wird nach jeder Aktion im `TableService` aufgerufen),
+  Zustand `poverty_seat/_cards/_queue/_buyer/_received`, `redeal_seat` (alte gespeicherte Spiele ohne diese Felder laden weiter). Anmelden über `baptize "poverty"` (einziger
+  Vorbehalt) oder die Stufe `poverty` der Vorbehaltsklärung (mehrere Vorbehalte; nach Pflicht- und Lustsolo). Entscheidungen und Annahmen: `docs/DDV_REGELMATRIX.md` B8.
+- **Datenschutz:** Die abgegebenen Karten stehen weder im Protokoll noch in öffentlichen Sichten; nur der Arme sieht sie (`povertyPassed`), nur der Käufer sieht, welche
+  Karten neu sind (`received`). Das Ergebnis des Tauschs bleibt verdeckt.
+- **Bots** (`backend/app/table/bots.py`): melden Armut an (höchstens 3 Trümpfe, nicht bei Hochzeitsblatt), geben alle Trümpfe ab (aufgefüllt mit den wertlosesten
+  Fehlkarten), übernehmen ab 6 Trümpfen (ab 5 mit Kreuz-Dame) und geben die schwächsten Fehlkarten zurück. In einer Armut kennen sie die Parteien
+  (Armer + Käufer = Re); die Stichproben-KI (`pimc`) rechnet mit Kreuz-Damen-Parteien und bleibt dort aus (Heuristik).
+- **Oberfläche:** Dialog „Armut anmelden/übernehmen“, Karten in der Hand markieren (`PovertyPanel.svelte`, Hand-Modus `pick`, Markierung „NEU“), Hinweise
+  (`events.js`), Marken „Armut“/„Übernahme“ am Sitz.
+- **Tests:** `backend/tests/rules/test_poverty.py` (30), `backend/tests/service/test_poverty_bots.py`, `test_poverty_redeal.py`, erweiterte Lauf-/Parser-Tests; `tests/lib.test.js`, `tests/selection.test.js`.
+- **Nicht geprüft:** `vite build` und das Rendern der Svelte-Komponenten im Browser (nur der Syntaxcheck `npm run check:svelte` lief); bitte einmal am Handy und am Desktop ausprobieren.
+
+## Test-Tisch (Betreiber-Bereich, Tab „TEST-TISCH“) (neu)
+
+Zweck: Situationen prüfen, auf die man im echten Spiel lange warten müsste (Armut, Hochzeit, Schweinchen, Endspiel,
+Ergebnis-Dialog, Pflichtsolo, Bockrunde …) – und das auch für künftige Änderungen an Regeln und Design.
+
+- **Gleicher Code wie der echte Tisch:** Ein Test-Tisch ist ein gewöhnlicher Raum (`Room.lab_spec_json` ≠ NULL markiert ihn) mit
+  gewöhnlichem `TableState`, `TableService`, Bots, `BotRunner`, Socket.IO-Sichten und derselben Oberfläche. Es gibt keinen
+  Sonderweg im Spiel; nur der Aufbau ist anders (`app/lab/scenario.py::build_lab_table`): Die Kartenreihenfolge wird so gebaut
+  (`rigged_order`), dass jeder Platz die gewünschten Karten bekommt; der Rest wird zufällig verteilt.
+- **Szenario = reine Daten:** Regeln (alle Hausregeln, Blatt mit/ohne Neunen), Geber, Karten je Platz, Besetzung (Bot oder selbst
+  gespielt), Rundenstand (gespielte Normalspiele, Bockspiele, Pflichtsolo-Status, Punkte) und „Vorspielen“ (die Bots spielen für alle
+  Plätze bis zum Spielbeginn bzw. bis zu N Stichen, z. B. für Endspiel oder Ergebnis-Dialog). Fertige Vorlagen: `app/lab/presets.py`.
+- **Plätze wechseln:** Jeder selbst gespielte Platz hat ein eigenes Sitzungs-Token (nur der Betreiber bekommt sie). Die Leiste „TEST“
+  (`LabBar.svelte`, unten links am Tisch) tauscht das Token und lädt neu – so lässt sich Armut als Armer *und* als Käufer testen.
+  „Szenario neu starten“ baut denselben Tisch erneut auf (gleiche Karten, gleiche Besetzung).
+- **Abgrenzung:** nie öffentlich, nie in der Statistik (kein `TableLog`), keine Bot-Übernahme (`takeover = 0`), im Betreiber-Überblick mit
+  „Test“ markiert; der Hausmeister räumt sie nach 12 Stunden Leerlauf ab, oder man löscht sie im Tab.
+- **Sicherheit:** alle Routen unter `/api/admin/lab/...` verlangen das Betreiber-Token (wie die übrigen `/admin`-Routen).
+- **Tests:** `backend/tests/service/test_lab.py` (Prüfung, Kartenbau, Vorlagen, Armut aus beiden Sichten, Neugabe, HTTP-Schicht),
+  `tests/lab.test.js` (Editor-Logik).
+- **Neue Spalte:** `room.lab_spec_json` (wird beim Start automatisch ergänzt, `_ensure_columns`).

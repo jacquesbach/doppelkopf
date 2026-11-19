@@ -120,5 +120,14 @@ export function createApi({ baseUrl = "/api", fetchImpl, clientId = null } = {})
     adminEditSuggestion: (t, id, title, description) =>
       request("PUT", `/admin/suggestions/${id}`, { ...admin(t), body: { title, description } }),
     adminDeleteSuggestion: (t, id) => request("DELETE", `/admin/suggestions/${id}`, admin(t)),
+
+    // Test-Tisch (Betreiber)
+    adminLabPresets: (t) => request("GET", "/admin/lab/presets", admin(t)),
+    adminLabTables: (t) => request("GET", "/admin/lab/tables", admin(t)),
+    adminLabCreate: (t, scenario) => request("POST", "/admin/lab/tables", { ...admin(t), body: { scenario } }),
+    adminLabReset: (t, code, scenario) =>
+      request("POST", `/admin/lab/tables/${encodeURIComponent(code)}/reset`, { ...admin(t), body: scenario ? { scenario } : {} }),
+    adminLabOpen: (t, code) => request("POST", `/admin/lab/tables/${encodeURIComponent(code)}/open`, { ...admin(t), body: {} }),
+    adminLabDelete: (t, code) => request("DELETE", `/admin/lab/tables/${encodeURIComponent(code)}`, admin(t)),
   };
 }

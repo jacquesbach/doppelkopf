@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { link } from "../../lib/nav.svelte.js";
   import { cardId } from "../../lib/cards.js";
+  import { pickReady, prunePick, togglePick } from "../../lib/selection.js";
   import {
     actingSeat,
     activeDialog,
@@ -12,6 +13,7 @@
     legalAction,
     myAutoplay,
     playableIds,
+    povertyPick,
     seatName,
     shownTrick,
     statusText,
@@ -22,6 +24,8 @@
   import Hand from "./Hand.svelte";
   import SeatPlate from "./SeatPlate.svelte";
   import DecisionPanel from "./DecisionPanel.svelte";
+  import PovertyPanel from "./PovertyPanel.svelte";
+  import CardBack from "../cards/CardBack.svelte";
   import ActionBar from "./ActionBar.svelte";
   import ResultDialog from "./ResultDialog.svelte";
   import Toasts from "./Toasts.svelte";
@@ -48,6 +52,33 @@
   const finished = $derived(game.phase === "finished");
   const warnedOther = $derived(!!takeoverWarning(view) && !isMyTakeoverWarning(view));
   const bock = $derived(view.table.round.bockRemaining ?? 0);
+
+  // Armut: Karten markieren, die abgegeben bzw. zurückgegeben werden (nur in diesen beiden Phasen, nur für den Betroffenen).
+  const pickAction = $derived(povertyPick(view));
+  let picked = $state([]);
+  $effect(() => {
+    const allowed = pickAction ? new Set(pickAction.cards) : null;
+    const kept = prunePick(untrack(() => picked), allowed);
+    if (kept.length !== untrack(() => picked).length) picked = kept;
+  });
+  const pick = $derived(
+    pickAction
+      ? {
+          selected: picked,
+          allowed: new Set(pickAction.cards),
+          received: pickAction.received ?? [],
+          onToggle: (id) => (picked = togglePick(picked, id, pickAction.count)),
+          hint:
+            pickAction.type === "poverty_pass"
+              ? `Karten zum Abgeben wählen (${picked.length}/${pickAction.count})`
+              : `Karten zum Zurückgeben wählen (${picked.length}/${pickAction.count}) – neue Karten tragen „NEU“`,
+        }
+      : null,
+  );
+  const confirmPick = () => {
+    if (pickAction && pickReady(picked, pickAction.count)) store.act({ type: pickAction.type, cardIds: picked });
+  };
+  const povertyOffering = $derived(game.phase === "poverty_offer");
 
   let info = $state(null); // null | "stand" | "last" | "tricks" | "history" | "chat" | "leave"
   let menuOpen = $state(false); // nur Handy: Menü mit den selteneren Knöpfen
@@ -138,8 +169,29 @@
 
       <div class="mid">
         {#if dialog}
-          <DecisionPanel {dialog} baptismKind={game.baptismKind} busy={store.busy} act={(a) => store.act(a)} />
+          <DecisionPanel
+            {dialog}
+            baptismKind={game.baptismKind}
+            busy={store.busy}
+            act={(a) => store.act(a)}
+            poverty={!!game.ruleOptions?.poverty}
+            poorName={seatName(view, game.poverty?.seat)}
+          />
+        {:else if pickAction}
+          <PovertyPanel
+            kind={pickAction.type}
+            count={pickAction.count}
+            picked={picked.length}
+            busy={store.busy}
+            onconfirm={confirmPick}
+          />
         {:else}
+          {#if povertyOffering}
+            <div class="poverty-stack" aria-label="Verdeckte Armut-Karten">
+              <span class="cards" aria-hidden="true"><CardBack /><CardBack /><CardBack /></span>
+              <span class="note">Armut von {seatName(view, game.poverty?.seat)}: 3 Karten liegen verdeckt bereit.</span>
+            </div>
+          {/if}
           {#if declared.length}
             <ul class="declared">
               {#each declared as x (x.seat)}
@@ -189,7 +241,7 @@
         />
         {#if me !== null && game.hand}
           <ActionBar {view} busy={store.busy} act={(a) => store.act(a)} />
-          <Hand hand={game.hand} {playable} onplay={(id) => store.playCard(id)} />
+          <Hand hand={game.hand} {playable} {pick} onplay={(id) => store.playCard(id)} />
         {/if}
         {#if finished && !showResult && !resultDelayed}
           <div class="nx-btn-row" style="justify-content:center;margin-top:12px;">
@@ -323,6 +375,19 @@
   }
   .me :global(.plate) {
     width: min(280px, 100%);
+  }
+  .poverty-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .poverty-stack .cards {
+    --back-w: 44px;
+    display: flex;
+  }
+  .poverty-stack .cards :global(.back + .back) {
+    margin-left: -14px;
   }
   .declared {
     list-style: none;

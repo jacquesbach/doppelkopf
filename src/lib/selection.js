@@ -25,3 +25,23 @@ export function tapCard(selected, id, twoStep) {
 export function keepSelection(selected, playable) {
   return selected && playable?.has(selected) ? selected : null;
 }
+
+// Armut: genau `count` Karten markieren (abgeben bzw. zurückgeben). Eine weitere Karte verdrängt die älteste Markierung,
+// damit man am Handy ohne Umweg umentscheiden kann.
+
+/** Markierung einer Karte umschalten; bei mehr als `count` Karten fällt die älteste heraus. */
+export function togglePick(picked, id, count) {
+  if (picked.includes(id)) return picked.filter((x) => x !== id);
+  const next = [...picked, id];
+  return next.length > count ? next.slice(next.length - count) : next;
+}
+
+/** Nur Markierungen behalten, die noch zur Auswahl stehen (Hand hat sich geändert). */
+export function prunePick(picked, allowed) {
+  return allowed ? picked.filter((id) => allowed.has(id)) : [];
+}
+
+/** Sind genau `count` Karten markiert? */
+export function pickReady(picked, count) {
+  return picked.length === count;
+}

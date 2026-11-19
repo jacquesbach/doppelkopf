@@ -14,7 +14,8 @@ from .game import GameKind, GameState, Phase, new_game
 from .profile import RuleProfile
 
 # Buchung in der Rubrik "Normalspiele" (zaehlt auf die 24 Spiele, Geber wechselt) - TSR 4.3.2, 4.4.3, 4.4.5
-_NORMAL_RUBRIC = (GameKind.NORMAL, GameKind.LUSTSOLO, GameKind.WEDDING, GameKind.SILENT_WEDDING)
+_NORMAL_RUBRIC = (GameKind.NORMAL, GameKind.LUSTSOLO, GameKind.WEDDING, GameKind.SILENT_WEDDING,
+                  GameKind.POVERTY)
 
 
 @dataclass

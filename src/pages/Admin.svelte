@@ -71,6 +71,24 @@
     }
   }
 
+  // Die Sitzung wird auf dem Server beendet, nicht nur hier vergessen.
+  async function logout() {
+    try {
+      await api.adminLogout(token);
+    } catch {
+      /* war schon abgelaufen */
+    }
+    writeToken("");
+  }
+  async function logoutAll() {
+    try {
+      await api.adminLogoutAll(token);
+    } catch {
+      /* war schon abgelaufen */
+    }
+    writeToken("");
+  }
+
   function authLost() {
     writeToken("");
     error = "Die Anmeldung ist abgelaufen. Bitte neu anmelden.";
@@ -119,7 +137,10 @@
           >{label}</button>
         {/each}
       </div>
-      <button type="button" class="nx-btn nx-btn-sm" onclick={() => writeToken("")}>ABMELDEN</button>
+      <div class="tabs">
+        <button type="button" class="nx-btn nx-btn-sm" onclick={logout}>ABMELDEN</button>
+        <button type="button" class="nx-btn nx-btn-sm nx-bg-coral" title="Beendet jede Betreiber-Anmeldung auf dem Server, auch auf anderen Geräten" onclick={logoutAll}>ALLE ABMELDEN</button>
+      </div>
     </div>
 
     <section class="panel nx-box" role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">

@@ -10,6 +10,7 @@
   let code = $state(initialCode);
   let name = $state(sessions.lastName());
   let password = $state("");
+  let seatCode = $state("");
   let role = $state("player");
   let room = $state(null); // Raum-Vorschau (zeigt, ob ein Passwort nötig ist)
   let error = $state("");
@@ -42,7 +43,7 @@
     busy = true;
     try {
       const value = code.trim().toUpperCase();
-      const res = await api.rejoin(value, { name: playerName, password });
+      const res = await api.rejoin(value, { name: playerName, password, seatCode });
       sessions.rememberName(playerName);
       sessions.set(value, { token: res.token, memberId: res.memberId });
       navigate(`/tisch/${value}`);
@@ -122,12 +123,17 @@
     <div class="nx-box nx-bg-lavender">
       <h2 class="nx-h2">Platz zurückholen</h2>
       <p class="nx-hint" style="color:#000;">
-        Die Runde läuft bereits. Gehörte dir ein Platz (z. B. auf einem anderen Gerät oder nach einem Verbindungsabbruch),
-        kannst du ihn hier zurückholen. Das Passwort des Tisches oben gilt auch hier.
+        Die Runde läuft bereits. Gehörte dir ein Platz (z. B. auf einem anderen Gerät), holst du ihn mit deinem
+        <strong>Platz-Code</strong> zurück. Du findest ihn am Tisch im Menü unter „PLATZ-CODE“. Hast du ihn verloren, kann der
+        Host ihn dir nennen. Das Passwort des Tisches oben gilt auch hier.
       </p>
+      <div class="nx-field">
+        <label class="nx-label" for="j-seat">Platz-Code</label>
+        <input id="j-seat" class="nx-input" style="font-family: var(--font-mono); text-transform: uppercase;" maxlength="12" autocomplete="off" placeholder="ABCD-EFGH" bind:value={seatCode} />
+      </div>
       <div class="nx-btn-row">
         {#each claimable as p (p.id)}
-          <button type="button" class="nx-btn nx-btn-sm nx-bg-white" disabled={busy || p.connected} onclick={() => reclaim(p.name)}>
+          <button type="button" class="nx-btn nx-btn-sm nx-bg-white" disabled={busy || p.connected || !seatCode.trim()} onclick={() => reclaim(p.name)}>
             Ich bin {p.name}{p.connected ? " (verbunden)" : ""}
           </button>
         {/each}

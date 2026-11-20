@@ -153,7 +153,7 @@
         </li>
       {/each}
     </ul>
-    <p class="nx-hint">Beim Zuschauen siehst du alle Karten. Die Spieler sehen dich in der Zuschauerliste als „Betreiber“. „Test“-Tische (Test-Tisch-Reiter) zählen nicht in die Summen.</p>
+    <p class="nx-hint">Beim Zuschauen siehst du nur die öffentlichen Informationen, keine Handkarten. Die Spieler sehen dich in der Zuschauerliste als „Betreiber“. „Test“-Tische (Test-Tisch-Reiter) zählen nicht in die Summen.</p>
   {/if}
 {:else if !error}
   <p>Lade …</p>

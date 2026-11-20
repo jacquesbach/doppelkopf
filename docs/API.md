@@ -23,7 +23,9 @@ Ungültige Optionen → `400` mit `code` (`unknown_option`, `invalid_option_valu
 | `POST /rooms/<code>/bots` | Host, vor dem Start | füllt **alle** freien Plätze mit Bots |
 | `GET /rooms/public` | – | Öffentliche Tische mit freien Plätzen: `{rooms: [{code, host, players, playerCount, hasPassword, settings, isOfficialDdv, createdAt}]}`. Nur Tische im Wartezustand, an denen sich in den letzten 90 s ein Mensch gemeldet hat (max. 30) |
 | `POST /rooms/<code>/visibility` `{public}` | Host | Tisch öffentlich (Tischliste) oder privat (nur per Link) stellen. `POST /rooms` nimmt dafür `public: true` an; `room.isPublic` steht in jeder Raumsicht |
-| `POST /rooms/<code>/rejoin` `{name, password?}` | alle | **Platz zurückholen** (anderes Gerät, gelöschter Browserspeicher): Name eines *nicht verbundenen* Spielers + ggf. Passwort → neues `{room, token, memberId}`; das alte Token wird ungültig. `404` kein Spieler mit dem Namen, `409` Spieler ist gerade verbunden |
+| `POST /rooms/<code>/rejoin` `{name, seatCode, password?}` | alle | **Platz zurückholen** (anderes Gerät, gelöschter Browserspeicher): Name eines *nicht verbundenen* Spielers + **Platz-Code** (+ ggf. Passwort) → neues `{room, token, memberId}`; das alte Token wird ungültig. `403` Passwort/Platz-Code falsch, `404` kein Spieler mit dem Namen, `409` Spieler ist gerade verbunden, `429` zu viele Fehlversuche |
+| `GET /rooms/<code>/seat-code` | Spieler | eigener Platz-Code `{code: "ABCD-EFGH"}` (aus geheimem Schlüssel + Sitzdaten berechnet, nicht gespeichert) |
+| `GET /rooms/<code>/seat-codes` | Host | `{seats: [{name, code}]}` der menschlichen Spieler, um einen verlorenen Code weiterzugeben |
 | `POST /rooms/<code>/leave` | Mitglied | Tisch verlassen. `409`, solange eine Runde läuft (Spieler). Host-Wechsel auf den ältesten Spieler; ohne Menschen wird der Raum geschlossen: `{left, closed}` |
 | `GET /rooms/<code>/chat` | Mitglied (auch Zuschauer) | `{messages:[{id, memberId, name, text, ts}]}` (letzte 100) |
 | `POST /rooms/<code>/chat` `{text}` | Mitglied (auch Zuschauer) | Nachricht senden; `400` leer/zu lang (>200), `429` `rate_limited` (< 0,8 s Abstand) → `201 {message}` |
@@ -110,7 +112,7 @@ Alle Fehler: `{"error": "Text", "code": "..."}`. Die Browser-Kennung (`X-Client-
 **Online-Status (Socket, freiwillig, nur Arbeitsspeicher):** Client → Server `presence:hello {code(10), name}`, `presence:watch {codes[≤100]}`, `presence:invite {to, table, token}`, `presence:goodbye`. Server → Client `presence:ready`, `presence:state {friends{code:{online,name}}}`, `presence:update {code,online,name}`, `presence:invite {from,table,hasPassword}`, `presence:invited {to,delivered}`, `presence:error {message}`. Wer nicht selbst mit `hello` sichtbar ist, kann nichts beobachten; Einladungen nur vom eigenen Tisch (gültiges Mitglieds-Token), höchstens 6 je Minute. Ausgeschaltet über `friendsEnabled`.
 
 **Betreiber** (Umgebungsvariable `ADMIN_PASSWORD`; ohne sie antworten alle `/admin/...`-Routen mit 503 `admin_disabled`)
-- `GET /admin/status` → `{enabled}`; `POST /admin/login` `{password}` → `{token, expiresIn}` (8 Std.; 5 Fehlversuche je 10 Min. und Adresse, dann 429).
+- `GET /admin/status` → `{enabled}`; `POST /admin/login` `{password}` → `{token, expiresIn}` (2 Std.; das Token ist zufällig, der Server hält nur dessen Hash im Arbeitsspeicher; 5 Fehlversuche je 10 Min. und Adresse, dann 429). `POST /admin/logout` beendet diese Sitzung serverseitig, `POST /admin/logout-all` alle (`{ended}`); ein Neustart beendet ebenfalls alle.
 - Alle weiteren Routen mit `Authorization: Bearer <token>` (sonst 401):
   - `GET /admin/tables` (älter, vom Dashboard nicht mehr genutzt; `/admin/live` ist die Obermenge) → offene Tische: `code, status, state (active|idle), idleSeconds, activeSince, createdAt, startedAt, lastActivityAt, humans, bots, connectedHumans, spectators, againstBotsOnly, isPublic, hasPassword, game`; dazu `count, activeCount, humansTotal, connectedTotal`. „Aktiv“ = letzte Aktion vor höchstens 5 Minuten.
   - `GET /admin/live` → Live-Übersicht (Abfrage alle 3 Sek.): `tables[]` (`code, state running|waiting|finished|idle, idleSeconds, humans, bots, connectedHumans, spectators, players[{name,isBot,isHost,connected}], game{number,phase,tricks}, isPublic, hasPassword, isLab`), `count, running, waiting, idle, humansOnline, playingNow, botOnlyTables, spectatorsTotal, serverTime`. Test-Tische zählen nicht in die Summen.
@@ -129,7 +131,8 @@ Alle Fehler: `{"error": "Text", "code": "..."}`. Die Browser-Kennung (`X-Client-
 
 ## Betrieb
 - `ADMIN_PASSWORD` schaltet das Betreiber-Backend (`/admin` im Frontend) frei; `APP_ENV=production` verlangt dafür mindestens 10 Zeichen.
-  `TRUST_PROXY=1` (hinter nginx) nimmt für die Begrenzungen die letzte Adresse aus `X-Forwarded-For`.
+  `TRUST_PROXY=1` (hinter nginx) nimmt für die Begrenzungen die letzte Adresse aus `X-Forwarded-For` (IPv6 zählt je /64-Netz).
+  Raumzugang (nur Arbeitsspeicher, `backend/app/guard.py`): neue Tische höchstens `CREATE_PER_HOUR` (30) je Adresse und Stunde; 8 Fehlversuche (Passwort, Platz-Code, Name) je Adresse und Tisch in 10 Min.; 20 verschiedene unbekannte Tisch-Codes je Adresse in 10 Min. → danach `429`. Mitglieder eines Tisches sind von der Code-Sperre ausgenommen. Tisch-Passwörter haben mindestens 6 Zeichen.
 - Statistik: je angelegtem Tisch ein Eintrag `table_log` (Zeiten, Menschen/Bots, Spiele, Runden) – bleibt bestehen, auch wenn der Tisch nach 12 Stunden abgeräumt wird.
   Die mitgelieferten acht Sprüche werden einmalig beim ersten Start eingetragen (Marker `setting.phrases_seeded`); wer alle löscht, bekommt sie nicht zurück.
 - `APP_ENV=production` verlangt ein gesetztes `SECRET_KEY`. Der Flask-Debugger läuft nur mit `FLASK_DEBUG=1`.

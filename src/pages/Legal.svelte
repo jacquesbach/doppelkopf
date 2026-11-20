@@ -160,6 +160,20 @@
           werden Mitgliedsdaten, Spielstand, Protokoll und Chat gelöscht. Ein Neustart des Servers löscht den Chat ebenfalls.
           Ohne Spielnamen ist der Beitritt zu einem Tisch nicht möglich.
         </p>
+        <p>
+          <strong>Platz zurückholen:</strong> Willst du deinen Platz auf einem anderen Gerät zurückholen, brauchst du den
+          <strong>Platz-Code</strong>. Der Server berechnet ihn bei Bedarf aus einem geheimen Schlüssel und den Daten deines Sitzes
+          und speichert ihn nicht. Du siehst ihn am Tisch im Menü, und die Gastgeberin oder der Gastgeber sieht die Codes der
+          Mitspieler seines Tisches, um sie jemandem weiterzugeben, der seinen Code verloren hat.
+        </p>
+        <p>
+          <strong>Schutz vor Durchprobieren:</strong> Damit niemand Tisch-Codes, Passwörter oder Platz-Codes durchprobiert, zählt der
+          Server für kurze Zeit (höchstens eine Stunde) im Arbeitsspeicher, wie oft von einer Adresse neue Tische angelegt wurden,
+          Passwörter oder Codes falsch eingegeben wurden und unbekannte Tisch-Codes abgefragt wurden, jeweils zusammen mit der
+          IP-Adresse (bei IPv6 mit dem zugehörigen /64-Netz) und gegebenenfalls dem Tisch-Code. Die Zähler werden nicht gespeichert
+          und verschwinden bei einem Neustart. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Schutz des Dienstes und der anderen
+          Spieler vor Missbrauch).
+        </p>
 
         <h2 class="nx-h2">4. Speicherung im Browser</h2>
         <p>
@@ -274,7 +288,8 @@
         <ul>
           <li>
             einen Tisch <strong>beobachten</strong>. Er erscheint dann für alle am Tisch sichtbar in der Liste der Zuschauer mit dem
-            Namen „Betreiber“ und sieht das Spiel wie ein Zuschauer, auch die Karten der Spieler. Das geschieht nicht heimlich.
+            Namen „Betreiber“ und sieht das Spiel wie jeder andere Zuschauer, also nur öffentliche Informationen (gespielte Karten,
+            Ansagen, Stand), nicht die Handkarten der Spieler. Das geschieht nicht heimlich.
           </li>
           <li>eine <strong>Nachricht</strong> an alle an einem Tisch senden (z. B. zu Wartungsarbeiten),</li>
           <li>
@@ -289,7 +304,10 @@
         </p>
         <p>
           Zweck ist der Betrieb, die Fehlerbehebung, der Support und der Schutz vor Missbrauch. Rechtsgrundlage ist Art. 6 Abs. 1 lit.
-          f DSGVO. Der Zugriff ist auf den Betreiber beschränkt.
+          f DSGVO. Der Zugriff ist auf den Betreiber beschränkt. Die Anmeldung gilt höchstens 2 Stunden und lässt sich auf dem
+          Server beenden. Der Server merkt sich dafür nur einen Hash des Anmelde-Tokens samt Ablaufzeit im Arbeitsspeicher, keine
+          Adresse und nichts in der Datenbank. Fehlgeschlagene Anmeldeversuche werden je IP-Adresse für 10 Minuten im
+          Arbeitsspeicher gezählt.
         </p>
 
         <h2 class="nx-h2">9. Domain, DNS und Verschlüsselung</h2>

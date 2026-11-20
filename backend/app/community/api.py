@@ -143,6 +143,19 @@ def create_community_blueprint(deps: CommunityDeps) -> Blueprint:
             return _err("Passwort falsch.", 401, "unauthorized")
         return jsonify({"token": token, "expiresIn": deps.admin.ttl})
 
+    @bp.post("/admin/logout")
+    @admin_only
+    def admin_logout():
+        """Diese Sitzung serverseitig beenden (das Token ist danach wertlos)."""
+        deps.admin.logout(request.headers.get("Authorization", "").removeprefix("Bearer ").strip())
+        return jsonify({"ok": True})
+
+    @bp.post("/admin/logout-all")
+    @admin_only
+    def admin_logout_all():
+        """Alle Betreiber-Sitzungen beenden (auch diese)."""
+        return jsonify({"ended": deps.admin.logout_all()})
+
     @bp.get("/admin/tables")
     @admin_only
     def admin_tables():

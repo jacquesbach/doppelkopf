@@ -17,12 +17,18 @@
   const last = $derived(view.game.lastTrick);
 
   let games = $state(null);
+  let seatCode = $state("");
+  let seatCodes = $state(null);
   let draft = $state("");
   let listEl = $state(null);
   let inputEl = $state(null);
 
   onMount(async () => {
     if (kind === "history") games = await store.loadHistory();
+    if (kind === "seat") {
+      seatCode = await store.loadSeatCode();
+      if (store.isHost) seatCodes = await store.loadSeatCodes();
+    }
     if (kind === "chat") inputEl?.focus(); // „Antworten“: gleich losschreiben können
   });
 
@@ -147,6 +153,22 @@
       </div>
     {/if}
   </Dialog>
+{:else if kind === "seat"}
+  <Dialog title="Platz-Code" {onClose}>
+    <p>
+      Mit diesem Code holst du deinen Platz auf einem <strong>anderen Gerät</strong> zurück (Startseite → Tisch beitreten →
+      „Platz zurückholen“). Auf diesem Gerät bleibst du auch ohne Code an deinem Platz.
+    </p>
+    <p class="code" aria-live="polite">{seatCode || "…"}</p>
+    <p class="nx-hint">Gib den Code niemandem, der nicht du bist: Wer ihn kennt, kann deinen Platz übernehmen. Er gilt nur für diesen Tisch.</p>
+    {#if store.isHost && seatCodes?.length}
+      <h3 class="nx-h3">Als Host: Codes der Mitspieler</h3>
+      <p class="nx-hint">Hat jemand seinen Code verloren und du kennst die Person, kannst du ihr hier ihren Code nennen.</p>
+      <ul class="codes">
+        {#each seatCodes as c (c.code)}<li><span>{c.name}</span> <b>{c.code}</b></li>{/each}
+      </ul>
+    {/if}
+  </Dialog>
 {:else if kind === "leave"}
   <Dialog title="Tisch verlassen?" {onClose}>
     {#if playing}
@@ -187,6 +209,10 @@
 {/if}
 
 <style>
+  .code { font-family: var(--font-mono); font-weight: 700; font-size: 1.8rem; letter-spacing: 0.08em; text-align: center; margin: 10px 0; background: var(--nb-yellow); border: 3px solid #000; padding: 8px; }
+  .codes { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+  .codes li { display: flex; justify-content: space-between; gap: 10px; border: 2px solid #000; background: #fff; padding: 4px 8px; }
+  .codes b { font-family: var(--font-mono); }
   .trick {
     --card-w: 72px;
     display: flex;

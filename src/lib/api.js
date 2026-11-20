@@ -93,8 +93,10 @@ export function createApi({ baseUrl = "/api", fetchImpl, clientId = null } = {})
       request("POST", `${room(code)}/stay`, { token, body: remember === undefined ? {} : { remember } }),
     away: (code, token) => request("POST", `${room(code)}/away`, { token, body: {} }),
     back: (code, token) => request("POST", `${room(code)}/back`, { token, body: {} }),
-    rejoin: (code, { name, password }) =>
-      request("POST", `${room(code)}/rejoin`, { body: { name, password: password || undefined } }),
+    rejoin: (code, { name, password, seatCode }) =>
+      request("POST", `${room(code)}/rejoin`, { body: { name, password: password || undefined, seatCode } }),
+    mySeatCode: (code, token) => request("GET", `${room(code)}/seat-code`, { token }),
+    seatCodes: (code, token) => request("GET", `${room(code)}/seat-codes`, { token }),
     chatHistory: (code, token) => request("GET", `${room(code)}/chat`, { token }),
     chatPost: (code, token, text) => request("POST", `${room(code)}/chat`, { token, body: { text } }),
 
@@ -112,6 +114,8 @@ export function createApi({ baseUrl = "/api", fetchImpl, clientId = null } = {})
     adminStatus: () => request("GET", "/admin/status"),
     adminLogin: (password) => request("POST", "/admin/login", { body: { password } }),
     adminTables: (t) => request("GET", "/admin/tables", admin(t)),
+    adminLogout: (t) => request("POST", "/admin/logout", { ...admin(t), body: {} }),
+    adminLogoutAll: (t) => request("POST", "/admin/logout-all", { ...admin(t), body: {} }),
     adminLive: (t) => request("GET", "/admin/live", admin(t)),
     adminLiveMessage: (t, code, message) =>
       request("POST", `/admin/live/${encodeURIComponent(code)}/message`, { ...admin(t), body: { message } }),

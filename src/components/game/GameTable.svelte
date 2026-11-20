@@ -92,7 +92,7 @@
   const gotCards = $derived(game.povertyGot ?? []);
   const showGot = $derived(gotCards.length > 0 && game.phase !== "finished" && gotSeenGame !== gameNumber);
 
-  let info = $state(null); // null | "stand" | "last" | "tricks" | "history" | "chat" | "leave"
+  let info = $state(null); // null | "stand" | "last" | "tricks" | "history" | "chat" | "seat" | "leave"
   let menuOpen = $state(false); // nur Handy: Menü mit den selteneren Knöpfen
   const openInfo = (kind) => {
     menuOpen = false;
@@ -140,6 +140,9 @@
           <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("last")} disabled={!game.lastTrick}>LETZTER STICH</button>
         {/if}
         <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("history")}>PROTOKOLL</button>
+        {#if me !== null}
+          <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("seat")}>PLATZ-CODE</button>
+        {/if}
         <button type="button" class="nx-btn nx-btn-sm nx-bg-white" aria-pressed={dark} aria-label={dark ? "Zum hellen Tisch wechseln" : "Zum dunklen Tisch wechseln"} title={dark ? "Zum hellen Tisch wechseln" : "Zum dunklen Tisch wechseln"} onclick={() => tableTheme.toggle()}>
           <span aria-hidden="true">{dark ? "☀" : "☾"}</span><span class="hide-sm"> {dark ? "HELL" : "DUNKEL"}</span>
         </button>

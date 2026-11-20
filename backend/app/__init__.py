@@ -85,6 +85,12 @@ def create_app(test_config=None):
 
     _register_ops(app, service, runner, chat, admin_auth, stats)
 
+    # Schutz des Raumzugangs (Erstellen, Beitreten, Wiedereinstieg): Zaehler nur im Arbeitsspeicher
+    from .guard import AccessGuard
+    app.extensions["access_guard"] = AccessGuard(
+        enabled=not app.config.get("TESTING") or bool(app.config.get("RATE_LIMITS_IN_TESTS")),
+        create_per_hour=int(app.config.get("CREATE_PER_HOUR") or 30))
+
     with app.app_context():
         db.create_all()
         _ensure_columns()

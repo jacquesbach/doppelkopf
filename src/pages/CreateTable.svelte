@@ -64,8 +64,8 @@
       </div>
       <div class="nx-field">
         <label class="nx-label" for="c-pass">Passwort (optional)</label>
-        <input id="c-pass" class="nx-input" type="password" minlength="4" autocomplete="new-password" bind:value={password} />
-        <span class="nx-hint">Mindestens vier Zeichen. Ohne Passwort kann jeder mit dem Link beitreten.</span>
+        <input id="c-pass" class="nx-input" type="password" minlength="6" autocomplete="new-password" bind:value={password} />
+        <span class="nx-hint">Mindestens sechs Zeichen. Ohne Passwort kann jeder mit dem Link beitreten.</span>
       </div>
     </div>
 

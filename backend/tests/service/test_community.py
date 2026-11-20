@@ -408,6 +408,20 @@ class CommunityHttp(unittest.TestCase):
             self.client.post("/api/admin/login", json={"password": "nein"})
         self.assertEqual(self.client.post("/api/admin/login", json={"password": self.PASSWORD}).status_code, 429)
 
+    def test_admin_logout_revokes_the_token_on_the_server(self):
+        h1, h2 = self.login(), self.login()
+        self.assertEqual(self.client.post("/api/admin/logout", headers=h1).status_code, 200)
+        self.assertEqual(self.client.get("/api/admin/stats", headers=h1).status_code, 401)      # Token ist wertlos
+        self.assertEqual(self.client.get("/api/admin/stats", headers=h2).status_code, 200)      # andere Sitzung bleibt
+        self.assertEqual(self.client.post("/api/admin/logout").status_code, 401)
+
+    def test_admin_logout_all_ends_every_session(self):
+        h1, h2 = self.login(), self.login()
+        ended = self.client.post("/api/admin/logout-all", headers=h1).get_json()["ended"]
+        self.assertEqual(ended, 2)
+        for h in (h1, h2):
+            self.assertEqual(self.client.get("/api/admin/stats", headers=h).status_code, 401)
+
     def test_admin_disabled_without_password(self):
         self.deps.admin = AdminAuth("", SECRET)
         self.assertFalse(self.client.get("/api/admin/status").get_json()["enabled"])

@@ -228,11 +228,12 @@ test("API: Weiter, Platz übergeben/zurückholen und Wiedereintritt", async () =
   await api.continueGame("AB12", "t");
   await api.away("AB12", "t");
   await api.back("AB12", "t");
-  await api.rejoin("AB12", { name: "Anna", password: "" });
+  await api.rejoin("AB12", { name: "Anna", password: "", seatCode: "ABCD-EFGH" });
   assert.deepEqual(calls.map((c) => c.url), [
     "/api/rooms/AB12/continue", "/api/rooms/AB12/away", "/api/rooms/AB12/back", "/api/rooms/AB12/rejoin",
   ]);
   assert.equal(JSON.parse(calls[3].init.body).name, "Anna");
+  assert.equal(JSON.parse(calls[3].init.body).seatCode, "ABCD-EFGH");
   assert.equal(calls[3].init.headers["X-Session-Token"], undefined);
 });
 

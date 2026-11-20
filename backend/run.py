@@ -7,7 +7,9 @@ app = create_app({"SECRET_KEY": os.environ.get("SECRET_KEY", "dev-only-change-me
                   # Betreiber-Backend (/admin): ohne ADMIN_PASSWORD ist es abgeschaltet
                   "ADMIN_PASSWORD": os.environ.get("ADMIN_PASSWORD", ""),
                   # hinter nginx: Besucheradresse aus X-Forwarded-For (fuer Begrenzungen) verwenden
-                  "TRUST_PROXY": os.environ.get("TRUST_PROXY") == "1"})
+                  "TRUST_PROXY": os.environ.get("TRUST_PROXY") == "1",
+                  # neue Tische je Adresse und Stunde (Schutz vor Missbrauch)
+                  "CREATE_PER_HOUR": int(os.environ.get("CREATE_PER_HOUR") or 30)})
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=int(os.environ.get("BACKEND_PORT") or os.environ.get("PORT") or 8181),

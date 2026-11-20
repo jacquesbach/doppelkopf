@@ -351,6 +351,16 @@ export class TableStore {
     const res = await this.#run(() => this.#deps.api.next(this.code, this.token));
     if (res?.view) this.#applyView(res.view);
   }
+  /** Eigener Platz-Code (zum Zurückholen des Sitzes auf einem anderen Gerät). */
+  async loadSeatCode() {
+    const res = await this.#run(() => this.#deps.api.mySeatCode(this.code, this.token));
+    return res?.code ?? "";
+  }
+  /** Host: Platz-Codes aller menschlichen Spieler (für jemanden, der seinen Code verloren hat). */
+  async loadSeatCodes() {
+    const res = await this.#run(() => this.#deps.api.seatCodes(this.code, this.token));
+    return res?.seats ?? [];
+  }
   async loadHistory() {
     const res = await this.#run(() => this.#deps.api.history(this.code, this.token));
     return res?.games ?? [];

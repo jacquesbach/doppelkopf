@@ -1,4 +1,4 @@
-# Doppelkopf Multiplayer
+# Doppelkopf
 
 [![Build & Test](https://github.com/jacquesbach/doppelkopf/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/jacquesbach/doppelkopf/actions/workflows/build-and-test.yml)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
@@ -20,6 +20,9 @@ sodass du sie auch selbst betreiben kannst.
 
 Das Projekt ist unabhängig und steht in keiner Verbindung zum Deutschen Doppelkopf-Verband e. V. (DDV).
 Dessen Turnierspielregeln dienen als Regelgrundlage.
+
+
+![Screenshot](https://imgur.com/a/Fm75d0u)]
 
 ## Inhalt
 

@@ -127,6 +127,7 @@
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 0.72rem;
+    color: var(--table-ink, #000);
   }
   /* Handy: stärker überlappender Fächer; oben Platz für die herausragende, ausgewählte Karte. */
   @media (max-width: 640px) {

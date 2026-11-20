@@ -77,6 +77,7 @@
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 0.8rem;
+    color: var(--table-ink, #000);
   }
   @media (max-width: 640px) {
     .bar {

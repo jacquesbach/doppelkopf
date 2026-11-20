@@ -1,0 +1,46 @@
+name: Fehler melden
+description: Etwas funktioniert nicht wie erwartet.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für deine Meldung! Bitte schreibe **keine** persönlichen Daten in das Ticket (keine Platz-Codes, keine Passwörter).
+        Sicherheitslücken bitte nicht hier, sondern über die private Meldung (Reiter „Security“).
+  - type: textarea
+    id: what
+    attributes:
+      label: Was ist passiert?
+      description: Was hast du getan, was hast du erwartet, was ist stattdessen passiert?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zum Nachstellen
+      placeholder: |
+        1. Tisch mit der Regel „…“ eröffnet
+        2. …
+  - type: input
+    id: device
+    attributes:
+      label: Browser und Gerät
+      placeholder: z. B. Safari 18 auf iPhone, Firefox 130 auf Windows
+  - type: input
+    id: table
+    attributes:
+      label: Tisch-Code (falls ein bestimmter Tisch betroffen war)
+      description: Nur der Tisch-Code, nie der Platz-Code.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Wo tritt der Fehler auf?
+      options:
+        - www.doppelkopf.cc
+        - Eigene Installation
+        - Lokale Entwicklung
+  - type: textarea
+    id: extra
+    attributes:
+      label: Weitere Angaben
+      description: Screenshots, Meldungen aus der Browser-Konsole (F12), Protokollauszüge.

@@ -41,6 +41,7 @@ jobs:
       BACKEND_PORT: ${{ vars.BACKEND_PORT || '8181' }}
       BACKEND_BIND: ${{ vars.BACKEND_BIND || '127.0.0.1' }}
       CORS_ORIGINS: ${{ vars.CORS_ORIGINS || '*' }}
+      CREATE_PER_HOUR: ${{ vars.CREATE_PER_HOUR || '30' }}
       COMPOSE_PROJECT_NAME: ${{ vars.COMPOSE_PROJECT_NAME || 'doppelkopf' }}
       # Domain der Website (canonical, sitemap.xml, robots.txt, Link-Vorschau)
       SITE_URL: ${{ vars.SITE_URL || 'https://doppelkopf.cc' }}
@@ -67,7 +68,7 @@ jobs:
           [ "$missing" = 0 ] || exit 1
           case "$DEPLOY_PATH" in /*) ;; *) echo "::error::DEPLOY_PATH muss ein absoluter Pfad sein"; exit 1;; esac
           if ! printf '%s' "$DEPLOY_PATH" | grep -Eq '^/[A-Za-z0-9._/-]+$'; then echo "::error::DEPLOY_PATH enthält ungültige Zeichen"; exit 1; fi
-          for name in FRONTEND_PORT BACKEND_PORT SSH_PORT; do
+          for name in FRONTEND_PORT BACKEND_PORT SSH_PORT CREATE_PER_HOUR; do
             if ! printf '%s' "${!name}" | grep -Eq '^[0-9]{2,5}$'; then echo "::error::$name muss eine Zahl sein"; exit 1; fi
           done
           # Werte landen in einer .env mit einfachen Anführungszeichen: diese und Zeilenumbrüche sind darin nicht möglich.
@@ -125,6 +126,7 @@ jobs:
             printf "BACKEND_PORT='%s'\n" "$BACKEND_PORT"
             printf "BACKEND_BIND='%s'\n" "$BACKEND_BIND"
             printf "CORS_ORIGINS='%s'\n" "$CORS_ORIGINS"
+            printf "CREATE_PER_HOUR='%s'\n" "$CREATE_PER_HOUR"
             printf "SITE_URL='%s'\n" "$SITE_URL"
             # Anzeige im Betreiber-Dashboard (Systemstatus): Git-Stand und Zeitpunkt dieses Deploys
             printf "APP_VERSION='%s'\n" "${GITHUB_SHA::7}"

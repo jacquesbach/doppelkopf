@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Sicherheitslücke melden
+    url: https://github.com/jacquesbach/doppelkopf/security/advisories/new
+    about: Bitte Sicherheitslücken nicht öffentlich melden, sondern über die private Meldung von GitHub.

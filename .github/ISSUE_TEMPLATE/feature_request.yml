@@ -1,0 +1,36 @@
+name: Verbesserungsvorschlag
+description: Eine Idee für neue Funktionen oder Verbesserungen.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Schön, dass du mitdenkst! Vorschläge kannst du auch ohne GitHub-Konto über das Formular am Ende der Website einreichen.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Was wünschst du dir?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Welches Problem löst es?
+      description: Wann hat dir die Funktion gefehlt?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Bereich
+      options:
+        - Spielregeln
+        - Bedienung am Tisch
+        - Bots
+        - Lobby und Tische
+        - Betreiber-Backend
+        - Dokumentation
+        - Sonstiges
+  - type: textarea
+    id: rules
+    attributes:
+      label: Bei Regelfragen: Quelle
+      description: Abschnitt der DDV-Turnierspielregeln bzw. Beschreibung der Haus- oder Kneipenregel.

@@ -1,231 +1,287 @@
-# Betrieb und Deployment
+# Deployment: Installation auf einem Server
 
-Alle Einstellungen (Geheimnisse, Ports) stehen an **einer** Stelle: in der Datei `.env`. Lokal legst du sie selbst an
-(Vorlage `.env.example`), auf dem Server schreibt sie GitHub Actions bei jedem Deploy aus den **GitHub-Secrets und -Variablen**.
-Die `.env` kommt nie ins Git.
+Diese Anleitung bringt die Website auf einen eigenen Linux-Server, mit eigener Domain und HTTPS.
+Alle Variablen erklärt [CONFIGURATION.md](CONFIGURATION.md), den laufenden Betrieb [OPERATIONS.md](OPERATIONS.md).
 
-| Datei | Zweck |
-|---|---|
-| `.env.example` | Vorlage mit allen Einstellungen und Erklärung |
-| `docker-compose.yml` | startet Backend + Frontend, liest Ports und Geheimnisse aus `.env` |
-| `deploy/nginx.conf` | nginx-Vorlage des Frontends (Backend-Port kommt aus `BACKEND_PORT`) |
-| `.github/workflows/build-and-test.yml` | Tests bei Pull Requests (und als Vorstufe des Deploys) |
-| `.github/workflows/deploy.yml` | **die Deploy-Datei**: Tests, dann Upload per SSH und `docker compose up` auf dem Server |
-| `scripts/smoke-test.sh` | prüft nach dem Start (CI und Deploy) Seiten, 404-Status, noindex, robots.txt, sitemap.xml, Cache und gzip |
-| `scripts/seo-build.mjs` | erzeugt beim Build je Seite eine HTML-Datei sowie `robots.txt` und `sitemap.xml` (Domain aus `SITE_URL`) |
-| `deploy/legal.example.json` | Beispiel für die Betreiberangaben (Impressum/Datenschutz) |
+## Überblick
 
-## Einstellungen
+Die Anwendung besteht aus zwei Docker-Containern (`docker-compose.yml`):
 
-| Name | Art | Standard | Bedeutung |
-|---|---|---|---|
-| `SECRET_KEY` | **Secret** | – (Pflicht) | signiert Captcha und Betreiber-Anmeldung. Mind. 32 Zeichen: `python3 -c "import secrets; print(secrets.token_hex(32))"` |
-| `ADMIN_PASSWORD` | **Secret** | leer = `/admin` aus | Passwort des Betreiber-Backends, mind. 10 Zeichen |
-| `APP_VERSION`, `DEPLOYED_AT` | automatisch | leer = „unbekannt“ | Version (Commit) und Zeitpunkt des letzten Deploys für den Systemstatus. Die GitHub-Action schreibt beide beim Deploy in die `.env` auf dem Server, du setzt sie nicht selbst |
-| `CREATE_PER_HOUR` | Variable | `30` | neue Tische je Besucheradresse und Stunde |
-| `SSH_HOST` | **Secret** | – (Pflicht) | Adresse deines Servers |
-| `SSH_USER` | **Secret** | – (Pflicht) | Benutzer für den Deploy (muss `docker` ausführen dürfen) |
-| `SSH_PRIVATE_KEY` | **Secret** | – (Pflicht) | privater Schlüssel nur für den Deploy |
-| `SSH_KNOWN_HOSTS` | **Secret** | – (Pflicht) | Fingerabdruck des Servers (schützt vor falschem Server) |
-| `FRONTEND_PORT` | Variable | `8080` | öffentlicher Port der Website |
-| `BACKEND_PORT` | Variable | `8181` | Port des Backends (nginx, Healthcheck und `npm run dev` nutzen denselben Wert) |
-| `BACKEND_BIND` | Variable | `127.0.0.1` | `127.0.0.1` = Backend-Port nur auf dem Server selbst; `0.0.0.0` = von außen erreichbar |
-| `DEPLOY_PATH` | Variable | `/opt/doppelkopf` | Zielordner auf dem Server |
-| `SSH_PORT` | Variable | `22` | SSH-Port des Servers |
-| `CORS_ORIGINS` | Variable | `*` | erlaubte Browser-Ursprünge (hinter dem Proxy `*` lassen) |
-| `COMPOSE_PROJECT_NAME` | Variable | `doppelkopf` | bestimmt den Namen des Daten-Volumes (`<name>_doppelkopf-data`) |
-| `SITE_URL` | Variable | `https://doppelkopf.cc` | Domain der Website, mit `https://`, ohne `/` am Ende. Daraus entstehen canonical-Links, `sitemap.xml`, `robots.txt` und die Link-Vorschau |
-| `LEGAL_NAME` | Variable | – | Impressum: Vor- und Nachname (bzw. Firma). **Pflicht**, sobald eine der `LEGAL_*`-Pflichtangaben gesetzt ist |
-| `LEGAL_STREET` | Variable | – | Impressum: Straße und Hausnummer (**Pflicht**, kein Postfach) |
-| `LEGAL_CITY` | Variable | – | Impressum: PLZ und Ort, z. B. `50667 Köln` (**Pflicht**) |
-| `LEGAL_EMAIL` | Variable | – | Impressum und Datenschutz: E-Mail-Adresse (**Pflicht**) |
-| `LEGAL_COUNTRY` | Variable | `Deutschland` | Land der Anschrift |
-| `LEGAL_PHONE` | Variable | leer | Telefonnummer (empfohlen als zweiter Kontaktweg, siehe unten) |
-| `LEGAL_VAT_ID` | Variable | leer | Umsatzsteuer-ID, nur falls vorhanden |
-| `LEGAL_HOSTING_PROVIDER` | Variable | leer | Datenschutz: Hosting-Anbieter, z. B. `Hetzner` |
-| `LEGAL_HOSTING_REGION` | Variable | leer | Datenschutz: Standort des Servers, z. B. `Frankfurt am Main, Deutschland` (Region deiner Oracle-Instanz) |
-| `LEGAL_REGISTRAR` | Variable | leer | Datenschutz: Domain-Registrar, z. B. `GoDaddy` |
+| Container | Aufgabe | Port |
+|---|---|---|
+| `frontend` | nginx: liefert die Website aus und leitet `/api` und `/socket.io` an das Backend weiter | `FRONTEND_PORT` (Standard 8080) |
+| `backend` | Flask: Spielregeln, Tische, Bots, Datenbank (SQLite im Volume `doppelkopf-data`) | `BACKEND_PORT` (Standard 8181), nur auf `127.0.0.1` |
 
-> **Läuft schon eine Installation?** Dann trage bei `COMPOSE_PROJECT_NAME` den bisherigen Projektnamen ein
-> (`docker volume ls` zeigt `<name>_doppelkopf-data`), sonst startet die Datenbank leer.
+Für den öffentlichen Betrieb kommt ein **Proxy mit HTTPS** davor (hier Caddy, der Zertifikate selbst besorgt):
 
-## Was GitHub ignorieren soll (`.gitignore`, liegt bei)
-
-- **Geheimnisse:** `.env`, `.env.*` (außer `.env.example`), `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `deploy_key*`
-- **Daten:** `backend/instance/`, `*.sqlite`, `*.sqlite3`, `*.db` (Spielernamen, Vorschläge, Statistik)
-- **Erzeugtes:** `node_modules/`, `dist/`, `__pycache__/`, `*.pyc`, `.pytest_cache/`, `.venv/`, `test-results/`, `playwright-report/`, `*.log`, `*.zip`
-- **Persönliches:** `.vscode/`, `.idea/`, `.DS_Store`, `.claude/`
-
-Committen solltest du `package-lock.json` (einmal `npm install` lokal ausführen). Der Build nutzt dann `npm ci` und bleibt reproduzierbar.
-
-## 1. Server vorbereiten (einmalig)
-
-Voraussetzungen: Linux-Server mit **Docker + Compose-Plugin**, `rsync` und `curl`.
-
-```bash
-# Benutzer für den Deploy (Beispiel Debian/Ubuntu)
-sudo adduser --disabled-password deploy
-sudo usermod -aG docker deploy           # darf Docker bedienen
-sudo mkdir -p /opt/doppelkopf && sudo chown deploy:deploy /opt/doppelkopf
-sudo apt install -y rsync curl
+```
+Besucher ──▶ Caddy (80/443, HTTPS) ──▶ frontend (nginx, 8080) ──▶ backend (Flask, 8181) ──▶ SQLite-Volume
 ```
 
-## 2. SSH-Schlüssel nur für den Deploy
+**Was du brauchst**
 
-Auf deinem Rechner (nicht auf dem Server):
+- Einen Linux-Server (getestet mit Debian/Ubuntu) mit **Docker Engine und Compose-Plugin** ([Installationsanleitung](https://docs.docker.com/engine/install/)). Ein kleiner Server genügt: Das Backend ist ein einzelner Prozess mit SQLite.
+- Eine **Domain**, die auf den Server zeigt (für HTTPS).
+- Für Weg B zusätzlich ein GitHub-Repository mit diesem Code (Fork oder eigene Kopie).
+
+Es gibt zwei Wege zur Installation. Beide führen zum selben Ergebnis:
+
+| | Weg A: von Hand | Weg B: GitHub Actions |
+|---|---|---|
+| Aufwand beim Einrichten | gering | höher (SSH-Schlüssel, Secrets) |
+| Update | `git pull` und ein Befehl auf dem Server | automatisch bei jedem Push auf `main`, nach erfolgreichen Tests |
+| Geeignet für | Ausprobieren, kleine Installationen | dauerhafter Betrieb |
+
+---
+
+## Weg A: Von Hand mit Docker Compose
+
+### 1. Code auf den Server holen
+
+```bash
+sudo mkdir -p /opt/doppelkopf && sudo chown "$USER": /opt/doppelkopf
+git clone https://github.com/jacquesbach/doppelkopf.git /opt/doppelkopf
+cd /opt/doppelkopf
+```
+
+(Statt `git clone` geht auch ein Download des Repositorys als ZIP.)
+
+### 2. Einstellungen anlegen (`.env`)
+
+```bash
+cp .env.example .env
+python3 -c "import secrets; print(secrets.token_hex(32))"     # Ausgabe als SECRET_KEY verwenden
+nano .env
+```
+
+Trage mindestens ein:
+
+- `SECRET_KEY`: der erzeugte Wert (Pflicht, sonst startet nichts),
+- `ADMIN_PASSWORD`: ein langes Passwort (mindestens 10 Zeichen) für `/admin`, oder leer lassen, dann ist das Betreiber-Backend aus,
+- `SITE_URL`: deine Adresse, z. B. `https://spiel.example.de` (mit `https://`, ohne `/` am Ende).
+
+Alle weiteren Werte haben brauchbare Standardwerte, siehe [CONFIGURATION.md](CONFIGURATION.md). Die Datei enthält Geheimnisse:
+
+```bash
+chmod 600 .env
+```
+
+### 3. Impressum und Datenschutz (Betreiberangaben)
+
+```bash
+mkdir -p legal
+cp deploy/legal.example.json legal/legal.json
+nano legal/legal.json
+```
+
+Trage deine Angaben ein (Hinweise im Abschnitt [Impressum und Datenschutzerklärung](#impressum-und-datenschutzerklärung)).
+Ohne diese Datei läuft die Seite mit markierten Testdaten.
+
+### 4. Starten
+
+```bash
+docker compose up -d --build
+docker compose ps
+curl http://127.0.0.1:8080/api/health
+```
+
+Der erste Start baut beide Images und dauert einige Minuten. `docker compose ps` zeigt am Ende beide Container als `healthy`.
+Die Antwort von `/api/health` lautet `{"service":"doppelkopf-multiplayer","status":"ok"}`.
+
+Die Seite läuft jetzt auf Port 8080 **ohne HTTPS**. Weiter geht es mit [Domain und HTTPS](#domain-und-https).
+
+### 5. Aktualisieren
+
+```bash
+cd /opt/doppelkopf
+git pull
+docker compose up -d --build
+```
+
+Die Spielstände bleiben erhalten (sie liegen im Volume). Laufende Spiele werden beim Neustart des Backends kurz unterbrochen und
+danach fortgesetzt. Vorher am besten eine [Sicherung](OPERATIONS.md#sicherung-und-wiederherstellung) machen und den Hinweisbanner im
+Betreiber-Backend nutzen, wenn viel los ist.
+
+---
+
+## Weg B: Automatisch mit GitHub Actions
+
+Jeder Push auf `main` startet die Pipeline [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
+
+1. **Tests:** Frontend (Syntaxcheck, Tests, Build), Backend (Regelkern, Tischschicht, echte App) und der ganze Docker-Stack mit einem Smoke-Test.
+2. **Eingaben prüfen:** Fehlende oder ungültige Secrets und Variablen brechen mit einer Fehlermeldung ab.
+3. **SSH-Verbindung** zum Server (mit festem Fingerabdruck), Dateien per `rsync` nach `DEPLOY_PATH`.
+4. **`.env` schreiben** (Rechte 600) aus den Secrets und Variablen. **`legal/legal.json`** aus den `LEGAL_*`-Variablen; sind keine gesetzt, wird eine vorhandene Datei auf dem Server entfernt (bei Weg B also nicht von Hand pflegen).
+5. **`docker compose up -d --build --wait`**, danach Gesundheitstest `/api/health` und Smoke-Test der Seiten.
+6. Alte Images aufräumen, SSH-Schlüssel entfernen.
+
+Zwei Deploys laufen nie gleichzeitig; ein laufender wird nicht abgebrochen.
+
+### 1. Server vorbereiten (einmalig)
+
+Benutzer für den Deploy anlegen (Beispiel Debian/Ubuntu):
+
+```bash
+sudo adduser --disabled-password deploy
+sudo usermod -aG docker deploy                       # darf Docker bedienen
+sudo mkdir -p /opt/doppelkopf && sudo chown deploy:deploy /opt/doppelkopf
+sudo apt install -y rsync curl                       # beides braucht der Deploy auf dem Server
+```
+
+Docker Engine mit Compose-Plugin muss installiert sein (siehe oben).
+
+### 2. SSH-Schlüssel nur für den Deploy
+
+Auf **deinem Rechner** (nicht auf dem Server):
 
 ```bash
 ssh-keygen -t ed25519 -f deploy_key -C "github-actions-deploy" -N ""
-ssh-copy-id -i deploy_key.pub deploy@DEINE-SERVER-ADRESSE        # oder .pub-Inhalt in ~deploy/.ssh/authorized_keys
-ssh-keyscan -p 22 DEINE-SERVER-ADRESSE > known_hosts_server       # Fingerabdruck des Servers
-ssh-keygen -lf known_hosts_server                                 # mit dem Fingerabdruck auf dem Server vergleichen
+ssh-copy-id -i deploy_key.pub deploy@DEINE-SERVER-ADRESSE     # oder den Inhalt von deploy_key.pub in ~deploy/.ssh/authorized_keys
+ssh-keyscan -p 22 DEINE-SERVER-ADRESSE > known_hosts    # Fingerabdruck des Servers
+ssh-keygen -lf known_hosts                              # mit dem Fingerabdruck auf dem Server vergleichen
 ```
 
-Der **Inhalt** von `deploy_key` wird das Secret `SSH_PRIVATE_KEY`, der von `known_hosts_server` das Secret `SSH_KNOWN_HOSTS`.
-Danach `deploy_key`, `deploy_key.pub` und `known_hosts_server` lokal löschen (sie stehen auch in der `.gitignore`).
+Der **Inhalt** von `deploy_key` wird das Secret `SSH_PRIVATE_KEY`, der Inhalt von `known_hosts` das Secret `SSH_KNOWN_HOSTS`.
+Danach `deploy_key`, `deploy_key.pub` und `known_hosts` lokal löschen (sie stehen auch in der `.gitignore`).
 
-## 3. GitHub einrichten
+### 3. GitHub einrichten
 
-1. Repository auf GitHub anlegen und das Projekt hochladen (`git init`, `git add .`, `git commit`, `git push`). Prüfe vorher mit `git status`, dass keine `.env` dabei ist.
-2. **Settings → Environments → New environment → `production`.** Dort optional „Required reviewers“ einschalten, dann wartet jeder Deploy auf deine Freigabe.
-3. In diesem Environment (oder unter **Settings → Secrets and variables → Actions**) die **Secrets** aus der Tabelle anlegen und bei Bedarf die **Variablen** (`FRONTEND_PORT`, `BACKEND_PORT`, …). Nicht gesetzte Variablen nehmen den Standardwert.
+1. Repository auf GitHub anlegen und den Code hochladen (`git init`, `git add .`, `git commit`, `git push`). Prüfe vorher mit `git status`, dass keine `.env` dabei ist.
+   Führe einmal `npm install` aus und committe die entstehende `package-lock.json`: Damit baut Docker mit `npm ci` reproduzierbar.
+2. **Settings → Environments → New environment → `production`.** Dort kannst du „Required reviewers“ einschalten, dann wartet jeder Deploy auf deine Freigabe.
+3. In diesem Environment (oder unter *Settings → Secrets and variables → Actions*) die **Secrets** und die nötigen **Variablen** anlegen.
+   Die vollständige Liste mit Standardwerten steht in [CONFIGURATION.md](CONFIGURATION.md#3-github-secrets-und--variablen-weg-b).
+   Mindestens nötig: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, `SECRET_KEY` und für den öffentlichen Betrieb `SITE_URL` und die `LEGAL_*`-Variablen.
 4. **Actions → Deploy → Run workflow** startet den ersten Deploy. Danach läuft er bei jedem Push auf `main`.
 
-Der Ablauf von `deploy.yml`: Tests (Frontend, Backend, Start des ganzen Stacks mit Smoke-Test) → Eingaben prüfen → SSH → Dateien per `rsync` nach
-`DEPLOY_PATH` → `.env` (Rechte 600) schreiben → `legal/legal.json` aus den `LEGAL_*`-Variablen schreiben →
-`docker compose up -d --build --wait` → Gesundheitstest `/api/health` → Smoke-Test der Seiten (`scripts/smoke-test.sh`) → alte Images löschen.
+Pull Requests lösen nur die Tests aus (`build-and-test.yml`), keinen Deploy.
 
-## Impressum und Datenschutzerklärung (Betreiberangaben)
+Bei Fehlern zeigt das Protokoll des Laufs die Ursache. Häufige Fälle stehen unter [Fehlersuche](#fehlersuche).
 
-**Warum nicht im Code?** Wer das Projekt von GitHub herunterlädt, soll nicht dein Impressum (Name und Anschrift) bekommen, und dein
-Name und deine Adresse sollen nicht öffentlich im Repository stehen. Deshalb ist der Aufbau so:
+---
 
-| Was | Wo es steht | Wer es pflegt |
-|---|---|---|
-| **Texte** von Impressum und Datenschutzerklärung | im Repository (`src/pages/Legal.svelte`). Sie beschreiben, was die *Software* tut (Cookies, Speicherung, Protokolle, Vorschläge) | gehört zum Code; ändert sich nur, wenn sich die Software ändert |
-| **Betreiberangaben** (Name, Anschrift, E-Mail, Hoster, Registrar) | **nur** in deinen GitHub-**Variablen** `LEGAL_*`. Der Deploy macht daraus die Datei `legal/legal.json` auf dem Server | jeder Betreiber für seine eigene Installation |
+## Domain und HTTPS
 
-Der Ablauf bei jedem Deploy: GitHub Actions liest die `LEGAL_*`-Variablen, erzeugt mit `jq` die Datei `$DEPLOY_PATH/legal/legal.json`
-und legt sie auf den Server. nginx liefert sie unter `/legal/legal.json` aus, die Seiten Impressum und Datenschutz laden sie beim Aufruf.
-Die Datei ist nicht im Git, nicht im Docker-Image und wird beim Hochladen (`rsync --delete`) nicht gelöscht.
-Eine Änderung der Angaben braucht nur eine geänderte Variable und einen neuen Deploy (Actions → Deploy → Run workflow), kein neues Bauen.
+Die Website lauscht auf `FRONTEND_PORT` ohne HTTPS. Für den öffentlichen Betrieb brauchst du eine Domain und einen Proxy mit Zertifikat.
 
-**Wer das Projekt forkt oder herunterlädt**, bekommt die Texte, aber keine Angaben. Er legt eigene Variablen an. Ohne sie zeigen die Seiten
-deutlich markierte **Testdaten** („Max Mustermann“), und der Deploy gibt eine Warnung aus. Damit steht nie versehentlich ein fremdes
-Impressum auf einer Seite. Die Datenschutzerklärung muss ein Betreiber mit anderem Hosting oder anderen Funktionen selbst prüfen und
-gegebenenfalls in `Legal.svelte` anpassen.
+### DNS
 
-**Variablen anlegen:** Settings → Environments → `production` → *Environment variables* (oder Settings → Secrets and variables → Actions →
-*Variables*). Mindestens `LEGAL_NAME`, `LEGAL_STREET`, `LEGAL_CITY`, `LEGAL_EMAIL`. Fehlt eine davon, während andere gesetzt sind,
-bricht der Deploy mit einer Fehlermeldung ab.
+Beim Domain-Anbieter einen `A`-Eintrag (und bei IPv6 einen `AAAA`-Eintrag) für `@` auf die öffentliche IP des Servers anlegen und
+einen `CNAME`-Eintrag `www` auf `@`. Änderungen brauchen bis zu einigen Stunden.
 
-Für die Angaben in deinem Fall:
+### Ports und Firewall
 
-| Variable | Beispielwert |
-|---|---|
-| `LEGAL_HOSTING_PROVIDER` | `Oracle Cloud Infrastructure` |
-| `LEGAL_HOSTING_REGION` | die Region deiner Instanz, z. B. `Frankfurt am Main, Deutschland` (in der Oracle-Konsole unter *Region* sichtbar) |
-| `LEGAL_REGISTRAR` | `GoDaddy` |
+- Öffne in der Firewall deines Anbieters (Security List, Security Group, Cloud-Firewall) nur **22** (SSH), **80** und **443**.
+- `FRONTEND_PORT` (8080) und `BACKEND_PORT` (8181) sollen von außen **nicht** erreichbar sein. Das Backend ist standardmäßig nur auf `127.0.0.1` offen (`BACKEND_BIND`).
+- **Achtung:** Docker setzt eigene Firewall-Regeln und umgeht dabei Programme wie `ufw`. Ein von Docker veröffentlichter Port ist deshalb auch dann erreichbar, wenn `ufw` ihn sperrt. Verlasse dich auf die Firewall des Anbieters.
+- Beispiel Oracle Cloud: In der *Security List* bzw. Netzwerksicherheitsgruppe Eingangsregeln für TCP 80 und 443 aus `0.0.0.0/0` anlegen. Bei den Ubuntu-Images von Oracle blockiert zusätzlich die Firewall auf dem Server: `sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT`, dasselbe für `443`, dann `sudo netfilter-persistent save`.
 
-Lokal ausprobieren: `deploy/legal.example.json` nach `legal/legal.json` (Docker) bzw. `public/legal/legal.json` (`npm run dev`) kopieren
-und anpassen. Beide Ordner sind in der `.gitignore`.
+### Proxy mit HTTPS: Caddy
 
-**Vor dem Livegang prüfen (kein Rechtsrat):**
-- **Impressum:** Name, ladungsfähige Anschrift (kein Postfach) und E-Mail sind Pflicht (§ 5 DDG). Viele Stellen empfehlen zusätzlich eine
-  Telefonnummer oder ein anderes direktes Kommunikationsmittel. Ob ein rein privates Angebot überhaupt impressumspflichtig ist, hängt
-  vom Einzelfall ab; im Zweifel ein Impressum führen.
-- **Hosting-Vertrag:** Die Datenschutzerklärung sagt, dass mit dem Hoster ein Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO) besteht. Bei
-  Oracle ist die Auftragsverarbeitung Teil der Cloud-Vereinbarung; prüfe in deinem Konto, dass sie gilt, und wähle eine EU-Region.
-- **Fehlt etwas, das du nutzt** (zum Beispiel Statistik- oder Fehlerdienste, die du später ergänzt), muss der Text erweitert werden.
-- Texte, die du für verbindlich hältst, lässt du am besten von einer fachkundigen Stelle prüfen.
-
-## Domain, HTTPS und Suchmaschinen
-
-**1. DNS bei GoDaddy** (Domain → *DNS verwalten*): `A`-Eintrag `@` auf die öffentliche IP deines Oracle-Servers, `CNAME`-Eintrag `www`
-auf `@`. Änderungen brauchen bis zu einigen Stunden.
-
-**2. Ports in Oracle Cloud öffnen:** Im Netzwerk (VCN) der Instanz in der *Security List* bzw. Netzwerksicherheitsgruppe Eingangsregeln
-für TCP **80** und **443** aus `0.0.0.0/0` anlegen. Bei Ubuntu-Images von Oracle blockiert zusätzlich die Firewall auf dem Server; dort
-`sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT` und dasselbe für `443` ausführen und mit
-`sudo netfilter-persistent save` dauerhaft speichern.
-
-**3. HTTPS mit Caddy** (holt Zertifikate selbst, leitet `http` auf `https` um und reicht WebSockets durch). `/etc/caddy/Caddyfile`:
+[Caddy](https://caddyserver.com/docs/install) besorgt und erneuert Zertifikate selbst, leitet `http` auf `https` um und reicht WebSockets durch.
+`/etc/caddy/Caddyfile`:
 
 ```
-doppelkopf.cc {
+doppelkopf.example.de {
     reverse_proxy 127.0.0.1:8080
     header Strict-Transport-Security "max-age=31536000"
 }
 
-www.doppelkopf.cc {
-    redir https://doppelkopf.cc{uri} permanent
+www.doppelkopf.example.de {
+    redir https://doppelkopf.example.de{uri} permanent
 }
 ```
 
-Die Weiterleitung von `www` auf die Hauptadresse ist wichtig: Suchmaschinen sollen nur **eine** Adresse sehen (`SITE_URL`).
-Den `Strict-Transport-Security`-Header erst eintragen, wenn HTTPS sicher läuft. Caddy schreibt standardmäßig keine Zugriffsprotokolle.
-Nutzt du stattdessen einen anderen Proxy, schalte dessen Zugriffsprotokoll mit vollen IP-Adressen ab oder kürze die Adressen, damit die
-Datenschutzerklärung stimmt.
+Danach `sudo systemctl reload caddy`. Hinweise:
 
-**4. `SITE_URL`** als GitHub-Variable setzen (Standard ist `https://doppelkopf.cc`) und neu deployen.
+- Die Weiterleitung von `www` auf die Hauptadresse ist wichtig: Suchmaschinen sollen nur **eine** Adresse sehen (`SITE_URL`).
+- Den `Strict-Transport-Security`-Header erst eintragen, wenn HTTPS sicher läuft.
+- Caddy schreibt standardmäßig keine Zugriffsprotokolle. Nutzt du einen anderen Proxy, schalte dessen Zugriffsprotokoll mit vollen IP-Adressen
+  ab oder kürze die Adressen, sonst stimmt die Datenschutzerklärung nicht (Abschnitt 2).
+- **Andere Proxys** (nginx, Traefik …) müssen WebSocket-Verbindungen für `/socket.io/` durchreichen (`Upgrade`/`Connection`-Header)
+  und die Besucheradresse in `X-Forwarded-For` setzen.
+- `deploy/nginx.conf` übernimmt die Besucheradresse aus `X-Forwarded-For`, wenn der Proxy aus einem privaten Docker-Netz (`172.16.0.0/12`)
+  ankommt. Liegt dein Proxy in einem anderen Adressbereich, passe `set_real_ip_from` in dieser Datei an. Sonst gelten die Begrenzungen
+  (Neue Tische, Vorschläge, Admin-Anmeldung) für alle Besucher gemeinsam.
 
-**5. Google und Bing anmelden** (einmalig):
-- [Google Search Console](https://search.google.com/search-console): Property-Typ *Domain* wählen, den angezeigten `TXT`-Eintrag bei GoDaddy anlegen,
-  dann *Sitemaps* → `https://doppelkopf.cc/sitemap.xml` einreichen. Mit *URL-Prüfung* die Adressen `/` und `/regeln` testen und
-  *Indexierung beantragen*.
-- [Bing Webmaster Tools](https://www.bing.com/webmasters): Seite aus der Search Console importieren. Bing speist auch DuckDuckGo und andere.
-- Prüfen, ob die Link-Vorschau stimmt: Adresse in einen Messenger einfügen. Das Bild liegt in `public/og-image.png` (Quelle `og-image.svg`).
+### Danach
 
-**Was die Seite für Suchmaschinen schon mitbringt:** je Seite eigener Titel, Beschreibung und canonical-Adresse; Klartext-Inhalt auch ohne JavaScript;
-die Regeln-Seite `/regeln` als inhaltliche Einstiegsseite; `robots.txt` und `sitemap.xml` (nur Startseite und Regeln); `noindex` für Tisch,
-Beitreten, Admin, Impressum und Datenschutz; echter Statuscode 404 für unbekannte Adressen; schema.org-Angaben (WebSite, WebApplication);
-Favicon in allen Größen, Manifest, gzip und langes Caching der Dateien. Bis eine neue Seite in den Ergebnissen erscheint, vergehen
-erfahrungsgemäß Tage bis Wochen. Wie weit oben sie steht, hängt dann von Inhalt und Verlinkung ab: ein Link von der GitHub-Projektseite
-(Feld *Website*) und aus Foren hilft.
+`SITE_URL` auf die endgültige Adresse setzen (in `.env` bzw. als GitHub-Variable) und neu bauen/deployen. Die Adresse wird beim Bauen in
+die Seiten eingesetzt (canonical-Links, Sitemap, Link-Vorschau).
 
-## Betrieb
+---
 
-```bash
-cd /opt/doppelkopf
-docker compose ps                         # Zustand
-docker compose logs -f --tail=100         # Protokolle
-docker compose restart backend            # Neustart
-```
+## Impressum und Datenschutzerklärung
 
-**Sicherung der Datenbank** (Tische, Vorschläge, Sprüche, Statistik liegen im Volume):
+**Warum nicht im Code?** Wer das Projekt herunterlädt, soll nicht das Impressum eines anderen bekommen, und Name und Anschrift des Betreibers
+sollen nicht öffentlich im Repository stehen. Deshalb gilt:
 
-```bash
-docker run --rm -v doppelkopf_doppelkopf-data:/data -v "$PWD":/backup alpine \
-  tar czf /backup/doko-$(date +%F).tgz -C /data .
-```
+| Was | Wo es steht | Wer pflegt es |
+|---|---|---|
+| **Texte** von Impressum und Datenschutzerklärung | im Repository (`src/pages/Legal.svelte`). Sie beschreiben, was die *Software* tut (Speicherung, Protokolle, Vorschläge …) | gehört zum Code, ändert sich nur, wenn sich die Software ändert |
+| **Betreiberangaben** (Name, Anschrift, E-Mail, Hoster, Registrar) | nur in der Datei `legal/legal.json` auf dem Server (Weg A: von Hand, Weg B: aus den `LEGAL_*`-Variablen) | jeder Betreiber für seine eigene Installation |
 
-**Zurückrollen:** auf GitHub den letzten guten Commit wiederherstellen (`git revert`) und pushen – der Deploy baut den alten Stand neu. Die Daten bleiben im Volume.
+Die Datei und ihre Felder beschreibt [CONFIGURATION.md](CONFIGURATION.md#4-betreiberangaben-legallegaljson). Wer das Projekt forkt, bekommt die
+Texte, aber keine Angaben. Ohne `legal.json` zeigen die Seiten deutlich markierte **Testdaten**, und der Deploy gibt eine Warnung aus.
 
-## HTTPS und Proxy
+**Vor dem Livegang prüfen (kein Rechtsrat):**
 
-Die Website lauscht auf `FRONTEND_PORT` ohne HTTPS. Für HTTPS setzt du einen Proxy auf dem Server davor, z. B. Caddy:
+- **Impressum:** Name, ladungsfähige Anschrift (kein Postfach) und E-Mail sind Pflicht (§ 5 DDG). Viele Stellen empfehlen zusätzlich eine
+  Telefonnummer oder einen zweiten Kontaktweg. Ob ein rein privates Angebot überhaupt impressumspflichtig ist, hängt vom Einzelfall ab.
+- **Hosting-Vertrag:** Die Datenschutzerklärung sagt, dass mit dem Hoster ein Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO) besteht.
+  Prüfe, dass das bei deinem Anbieter zutrifft, und wähle möglichst einen Standort in der EU.
+- **Eigene Änderungen:** Nutzt du etwas, das die Erklärung nicht nennt (zum Beispiel Statistik- oder Fehlerdienste, die du ergänzt),
+  muss der Text erweitert werden. Siehe [PRIVACY.md](PRIVACY.md).
+- Texte, die du für verbindlich hältst, lässt du am besten von einer fachkundigen Stelle prüfen.
 
-```
-doko.example.de {
-    reverse_proxy 127.0.0.1:8080
-}
-```
+---
 
-`deploy/nginx.conf` übernimmt dann die Besucheradresse aus `X-Forwarded-For`, wenn der Proxy im Docker-Netz (172.16.0.0/12) ankommt.
-Liegt dein Proxy in einem anderen Adressbereich, passe `set_real_ip_from` in der Datei an – sonst gelten die Begrenzungen
-(Vorschläge, Admin-Login) für alle Besucher gemeinsam.
+## Nach dem Deploy prüfen
+
+1. `curl http://127.0.0.1:8080/api/health` auf dem Server liefert `status: ok`.
+2. Im Browser die Adresse öffnen: Startseite lädt, `/regeln`, `/impressum` und `/datenschutz` zeigen **deine** Angaben (nicht „Max Mustermann“).
+3. Auf der Startseite die **Sofort-Partie gegen KI** starten und ein paar Karten spielen. In der Lobby steht „LIVE“, am Tisch erscheint kein Etikett „OFFLINE“.
+4. Browser-Konsole (F12): keine Meldungen zu blockierten Ressourcen (Content-Security-Policy).
+5. Mit dem Handy und einem zweiten Gerät einem Tisch beitreten.
+6. `/admin` öffnen, mit `ADMIN_PASSWORD` anmelden: Reiter **SYSTEM** zeigt Version und Zeitpunkt des Deploys.
+7. Optional: den Smoke-Test von Hand laufen lassen: `bash scripts/smoke-test.sh http://127.0.0.1:8080` (prüft Seiten, 404-Status, noindex, robots.txt, sitemap.xml, Cache und gzip).
+
+## Suchmaschinen
+
+Die Seite bringt bereits mit: je Seite eigener Titel, Beschreibung und canonical-Adresse, Klartext-Inhalt auch ohne JavaScript,
+die Regeln-Seite `/regeln` als inhaltliche Einstiegsseite, `robots.txt` und `sitemap.xml` (nur Startseite und Regeln), `noindex` für
+Tisch, Beitreten, Admin, Impressum und Datenschutz, echten Statuscode 404 für unbekannte Adressen, schema.org-Angaben, Favicons, Manifest,
+gzip und langes Caching. Das erzeugt `scripts/seo-build.mjs` beim Build (Domain aus `SITE_URL`).
+
+Einmalig einrichten:
+
+- [Google Search Console](https://search.google.com/search-console): Property-Typ *Domain*, den angezeigten `TXT`-Eintrag beim DNS-Anbieter anlegen, dann
+  *Sitemaps* → `https://deine-domain/sitemap.xml` einreichen. Mit *URL-Prüfung* die Adressen `/` und `/regeln` testen und die Indexierung beantragen.
+- [Bing Webmaster Tools](https://www.bing.com/webmasters): Seite aus der Search Console importieren (Bing speist auch DuckDuckGo und andere).
+- Link-Vorschau prüfen: Adresse in einen Messenger einfügen. Das Bild liegt in `public/og-image.png` (Quelle `og-image.svg`).
+
+Bis eine neue Seite in den Ergebnissen erscheint, vergehen erfahrungsgemäß Tage bis Wochen. Hilfreich sind Links von anderen Seiten, etwa
+von der GitHub-Projektseite (Feld *Website*) und aus Foren oder Vereinsseiten.
 
 ## Fehlersuche
 
-| Meldung | Ursache |
+| Meldung / Beobachtung | Ursache |
 |---|---|
-| `Secret … fehlt` | Secret nicht (oder im falschen Environment) angelegt |
+| `SECRET_KEY fehlt - in .env eintragen` | `.env` fehlt oder `SECRET_KEY` ist leer (Weg A). Bei Weg B: Secret fehlt oder liegt im falschen Environment. |
+| `Secret … fehlt` im Deploy-Protokoll | Secret nicht (oder im falschen Environment) angelegt |
+| `SECRET_KEY ist zu kurz` | Mindestens 32 Zeichen verwenden |
+| `ADMIN_PASSWORD braucht mindestens 10 Zeichen` | Passwort verlängern oder leer lassen |
 | `Host key verification failed` | `SSH_KNOWN_HOSTS` passt nicht zu `SSH_HOST`/`SSH_PORT` |
-| `permission denied … docker.sock` | Deploy-Benutzer nicht in der Gruppe `docker` |
+| `permission denied … docker.sock` | Deploy-Benutzer ist nicht in der Gruppe `docker` |
 | `rsync: command not found` | `rsync` auf dem Server installieren |
-| `required variable SECRET_KEY is missing` | `.env` fehlt/leer (nur lokal; im Deploy schreibt der Workflow sie) |
 | `SITE_URL muss mit https:// beginnen …` | Variable mit Pfad, Schrägstrich am Ende oder ohne `https://` |
 | `Impressum unvollständig, es fehlen die Variablen …` | `LEGAL_NAME`, `LEGAL_STREET`, `LEGAL_CITY`, `LEGAL_EMAIL`: alle oder keine setzen |
-| Impressum zeigt „TESTDATEN“ | `LEGAL_*`-Variablen nicht gesetzt (oder im falschen Environment), oder `legal/legal.json` fehlt auf dem Server |
-| Smoke-Test: `… liefert 404 statt 200` | Seite im Router, aber nicht in `deploy/nginx.conf` eingetragen (oder Build ohne `scripts/seo-build.mjs`) |
-| Tisch zeigt dauerhaft „Offline“ | `CORS_ORIGINS` nicht `*` hinter einem Proxy, oder Proxy leitet `/socket.io/` nicht mit Websocket-Upgrade weiter |
+| Impressum zeigt „TESTDATEN“ | `LEGAL_*` nicht gesetzt (oder im falschen Environment) bzw. `legal/legal.json` fehlt auf dem Server |
+| Backend startet nicht, Log: `ADMIN_PASSWORD muss in Produktion mindestens 10 Zeichen …` | Passwort zu kurz |
+| Backend startet nicht, Log: `In Produktion muss SECRET_KEY gesetzt sein` | `SECRET_KEY` leer |
+| Tisch zeigt dauerhaft „Offline“ | `CORS_ORIGINS` ist hinter einem Proxy nicht `*`, oder der Proxy leitet `/socket.io/` nicht mit WebSocket-Upgrade weiter |
+| Alle Besucher teilen sich Begrenzungen („Zu viele Tische/Versuche“) | Proxy liegt nicht im Bereich `172.16.0.0/12`: `set_real_ip_from` in `deploy/nginx.conf` anpassen |
+| Nach einem Update ist die Datenbank leer | `COMPOSE_PROJECT_NAME` bzw. Ordnername hat sich geändert, das alte Volume ist nicht eingebunden (siehe [CONFIGURATION.md](CONFIGURATION.md#daten-volume-und-projektname)) |
+| Smoke-Test: `… liefert 404 statt 200` | Seite ist im Router, aber nicht in `deploy/nginx.conf` eingetragen (oder der Build lief ohne `scripts/seo-build.mjs`) |
+| Seite lädt, Bilder oder Schrift fehlen, Konsole nennt „Content Security Policy“ | Eine Ressource kommt nicht vom eigenen Server. `deploy/nginx.conf` (`$csp`) prüfen |
+| `docker compose up` bricht beim Bauen ab | `docker compose build --no-cache` und die Fehlermeldung lesen. Häufig: kein Platz oder kein Netz auf dem Server |

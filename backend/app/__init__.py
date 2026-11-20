@@ -165,7 +165,7 @@ def _register_ops(app, service, runner, chat, admin_auth, stats):
 
 
 def _ensure_columns():
-    """Entwicklungs-Datenbanken aus Meilenstein 0-1 um neue Spalten ergaenzen (kein Alembic noetig)."""
+    """Bestehende SQLite-Dateien um spaeter hinzugekommene Spalten ergaenzen (kein Alembic noetig)."""
     from sqlalchemy import inspect, text
     wanted = {"room": [("settings_json", "TEXT NOT NULL DEFAULT '{}'"), ("is_public", "BOOLEAN NOT NULL DEFAULT 0"),
                       ("takeover_seconds", "INTEGER NOT NULL DEFAULT 180"), ("lab_spec_json", "TEXT")],

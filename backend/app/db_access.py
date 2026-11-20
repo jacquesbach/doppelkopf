@@ -30,7 +30,7 @@ class SqlStore:
     def load(self, code: str) -> Stored | None:
         snap = self._snapshot(self._room(code))
         if snap is None or snap.schema_version != SCHEMA_VERSION:
-            return None  # Altformat (vor Meilenstein 2) wird ignoriert
+            return None  # Altformat (schema_version 1) wird ignoriert
         return Stored(TableState.from_dict(json.loads(snap.state_json)), snap.version)
 
     def create(self, code: str, table: TableState) -> int:

@@ -47,7 +47,7 @@ class GameSnapshot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey("room.id"), unique=True, nullable=False, index=True)
     history_id = db.Column(db.Integer, db.ForeignKey("game_history.id"), nullable=True)
-    state_json = db.Column(db.Text, nullable=False)  # seit Meilenstein 2: komplettes TableState-JSON
+    state_json = db.Column(db.Text, nullable=False)  # komplettes TableState-JSON
     schema_version = db.Column(db.Integer, default=2, nullable=False, server_default="1")  # 1 = Altformat (ignoriert)
     version = db.Column(db.Integer, default=1, nullable=False)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)

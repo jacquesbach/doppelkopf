@@ -1,6 +1,6 @@
 """Spielrunde: 24 Normalspiele, Pflichtsolo, Vorfuehrung, Geberfortschreibung (TSR 3.3.1, 4.2, 4.3, 8.5-8.6).
 
-Tisch, Spielrunde und Einzelspiel sind getrennte Modelle (Briefing M0): ``RoundState`` kennt
+Tisch, Spielrunde und Einzelspiel sind getrennte Modelle: ``RoundState`` kennt
 nur Zaehler und Summen; die Karten leben im ``GameState`` des Einzelspiels.
 """
 from __future__ import annotations

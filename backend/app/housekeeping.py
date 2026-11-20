@@ -63,6 +63,10 @@ def start_janitor(app, socketio, chat=None) -> None:
             try:
                 with app.app_context():
                     close_idle_rooms(chat, max_idle=timedelta(hours=hours))
+                    import time
+                    from .ops.sql import SqlErrors, prune_events
+                    SqlErrors().prune(time.time())           # Fehler-Log: nach 30 Tagen weg
+                    prune_events(time.time())                # anonyme Spiel-Zaehler: nach 400 Tagen weg
             except Exception:  # pragma: no cover - der Hausmeister darf den Prozess nie beenden
                 log.exception("Aufraeumen fehlgeschlagen")
 

@@ -105,10 +105,27 @@ export function createApi({ baseUrl = "/api", fetchImpl, clientId = null } = {})
     submitSuggestion: (fields) => request("POST", "/suggestions", { body: fields, withClient: true }),
     voteSuggestion: (id) => request("POST", `/suggestions/${id}/vote`, { withClient: true }),
 
+    // Design-Einstellungen und Banner (öffentlich lesbar)
+    siteSettings: () => request("GET", "/site-settings"),
+
     // Betreiber-Backend (Token aus adminLogin)
     adminStatus: () => request("GET", "/admin/status"),
     adminLogin: (password) => request("POST", "/admin/login", { body: { password } }),
     adminTables: (t) => request("GET", "/admin/tables", admin(t)),
+    adminLive: (t) => request("GET", "/admin/live", admin(t)),
+    adminLiveMessage: (t, code, message) =>
+      request("POST", `/admin/live/${encodeURIComponent(code)}/message`, { ...admin(t), body: { message } }),
+    adminLiveClose: (t, code, message) =>
+      request("POST", `/admin/live/${encodeURIComponent(code)}/close`, { ...admin(t), body: { message } }),
+    adminLiveSpectate: (t, code) => request("POST", `/admin/live/${encodeURIComponent(code)}/spectate`, { ...admin(t), body: {} }),
+    adminInsights: (t) => request("GET", "/admin/insights", admin(t)),
+    adminSystem: (t) => request("GET", "/admin/system", admin(t)),
+    adminErrors: (t) => request("GET", "/admin/errors", admin(t)),
+    adminDeleteError: (t, id) => request("DELETE", `/admin/errors/${id}`, admin(t)),
+    adminClearErrors: (t) => request("DELETE", "/admin/errors", admin(t)),
+    adminSiteSettings: (t) => request("GET", "/admin/site-settings", admin(t)),
+    adminSaveSiteSettings: (t, settings) => request("PUT", "/admin/site-settings", { ...admin(t), body: settings }),
+    adminResetSiteSettings: (t) => request("POST", "/admin/site-settings/reset", { ...admin(t), body: {} }),
     adminStats: (t) => request("GET", "/admin/stats", admin(t)),
     adminPhrases: (t) => request("GET", "/admin/phrases", admin(t)),
     adminAddPhrase: (t, text) => request("POST", "/admin/phrases", { ...admin(t), body: { text } }),

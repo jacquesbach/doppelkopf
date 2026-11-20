@@ -7,6 +7,8 @@
   import Lobby from "./Lobby.svelte";
   import GameTable from "../components/game/GameTable.svelte";
   import LabBar from "../components/game/LabBar.svelte";
+  import { presence } from "../lib/presence.svelte.js";
+  import RoomNotice from "../components/ui/RoomNotice.svelte";
 
   let { code } = $props();
 
@@ -16,7 +18,14 @@
     await store.init();
     if (store.status === "needs_join") navigate(`/beitreten/${code}`, { replace: true });
   });
-  onDestroy(() => store.destroy());
+  // Für Einladungen an Freunde: der eigene Tisch (nur im Arbeitsspeicher)
+  $effect(() => {
+    presence.table = store.status === "ready" && store.token && !store.me?.isBot ? { code, token: store.token } : null;
+  });
+  onDestroy(() => {
+    store.destroy();
+    presence.table = null;
+  });
 </script>
 
 {#if store.status === "loading"}
@@ -44,6 +53,7 @@
 {/if}
 
 {#if store.status === "ready"}
+  <RoomNotice {store} />
   <LabBar {code} mySeat={store.view?.table.mySeat ?? null} />
 {/if}
 

@@ -13,6 +13,7 @@ export function createRoomSocket({ ioFactory, origin, code, token, handlers = {}
   socket.on("game:state", (view) => handlers.onGame?.(view));
   socket.on("chat:message", (message) => handlers.onChat?.(message));
   socket.on("room:error", (error) => handlers.onError?.(error));
+  socket.on("room:notice", (notice) => handlers.onNotice?.(notice)); // Nachricht des Betreibers an den Tisch
 
   return {
     close() {

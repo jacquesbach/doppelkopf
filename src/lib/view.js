@@ -250,3 +250,34 @@ export function activeRuleLabels(settings) {
 }
 
 export { cardId };
+
+const DECLARATION_PHASES = new Set([
+  "reservation_query", "reservation_resolution", "baptism", "poverty_pass", "poverty_offer", "poverty_return",
+]);
+
+/** Dauer (ms), wie lange die Antworten der Vorbehaltsabfrage nach der letzten Antwort noch sichtbar bleiben. */
+export const REVEAL_MS = 3500;
+
+/**
+ * Soeben ist die Vorbehaltsabfrage zu Ende gegangen (gleiches Spiel, Abfrage -> etwas anderes)?
+ * Dann sollen alle Antworten noch eine Weile zu sehen sein, auch wenn das Spiel sofort weitergeht.
+ */
+export function declarationsJustClosed(prev, next) {
+  const before = prev?.game;
+  const after = next?.game;
+  if (!before || !after) return false;
+  return (
+    before.phase === "reservation_query" &&
+    after.phase !== "reservation_query" &&
+    prev.table?.gameNumber === next.table?.gameNumber &&
+    (after.declarations ?? []).some(Boolean)
+  );
+}
+
+/** Antworten der Vorbehaltsabfrage als Liste [{ seat, d }] – während der Abfrage und der Folgephasen, danach nur im Nachlauf (`reveal`). */
+export function declaredAnswers(view, reveal = false) {
+  const g = view?.game;
+  if (!g?.declarations) return [];
+  if (!DECLARATION_PHASES.has(g.phase) && !reveal) return [];
+  return g.declarations.map((d, seat) => ({ seat, d })).filter((x) => x.d);
+}

@@ -63,7 +63,7 @@
     margin: 0;
     padding: 18px;
     border: 3px dashed #000;
-    background: #fffdf5;
+    background: var(--nb-bg);
     font-weight: 600;
   }
   .table {
@@ -113,7 +113,7 @@
     justify-self: start;
     padding: 8px 14px;
     border: 3px solid #000;
-    background: #ffd23f;
+    background: var(--nb-yellow);
     box-shadow: 3px 3px 0 0 #000;
     color: #000;
     font-family: var(--font-mono, monospace);

@@ -21,6 +21,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-*}   # Socket.IO prueft den Origin strikt; hinter dem Proxy sonst dauerhaft "Offline"
       TRUST_PROXY: "1"                   # nginx steht davor: Besucheradresse aus X-Forwarded-For (fuer die Missbrauchsbremsen)
       BACKEND_PORT: ${BACKEND_PORT:-8181}
+      APP_VERSION: ${APP_VERSION:-}      # vom Deploy gesetzt (Git-Stand); nur Anzeige im Betreiber-Dashboard
+      DEPLOYED_AT: ${DEPLOYED_AT:-}      # vom Deploy gesetzt (UTC); nur Anzeige im Betreiber-Dashboard
     volumes:
       - doppelkopf-data:/data
     ports:

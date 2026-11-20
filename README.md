@@ -49,8 +49,8 @@ Einrichtung, Liste aller Secrets/Variablen, was Git ignoriert, Sicherung und HTT
 
 ## Betreiber-Backend
 
-Unter `/admin` (Passwort aus `ADMIN_PASSWORD`; ohne die Variable ist es abgeschaltet) kannst du offene Tische sehen
-(Menschen, aktiv/inaktiv seit wann), die Nutzungsstatistik ansehen, die Chat-Sprüche pflegen und Verbesserungsvorschläge moderieren:
+Unter `/admin` (Passwort aus `ADMIN_PASSWORD`; ohne die Variable ist es abgeschaltet) gibt es die Reiter LIVE (aktive Tische, Spieler online; Tisch zuschauen, Nachricht senden, beenden), STATISTIK, AUSWERTUNG (Spiele pro Tag, Spitzenzeiten, Spieldauer, Abbruchquote), SYSTEM (Version, letzter Deploy, Datenbankgröße, Fehler-Log) und DESIGN (Farben, Banner, Hell/Dunkel-Vorgabe, Online-Status an/aus). Dazu kannst du die Chat-Sprüche pflegen und Verbesserungsvorschläge moderieren;
+früher: offene Tische sehen, die Nutzungsstatistik ansehen, die Chat-Sprüche pflegen und Verbesserungsvorschläge moderieren:
 
 ```bash
 ADMIN_PASSWORD="ein-langes-passwort" python run.py          # lokal

@@ -14,23 +14,29 @@ BUCKETS = ((0, 0, "keins"), (1, 3, "1–3"), (4, 11, "4–11"), (12, 27, "12–2
 class StatsRecorder(Protocol):
     def table_created(self, code: str, now: float | None = None) -> None: ...
     def round_started(self, code: str, humans: int, bots: int, now: float | None = None) -> None: ...
-    def game_finished(self, code: str, now: float | None = None) -> None: ...
+    def game_finished(self, code: str, now: float | None = None, duration: float | None = None) -> None: ...
+    def round_finished(self, code: str, now: float | None = None) -> None: ...
     def activity(self, code: str, now: float | None = None) -> None: ...
     def logs(self) -> list[dict]:
-        """``[{code, createdAt, startedAt|None, lastActivityAt, humans, bots, games, rounds}]`` (Unix-Zeit)."""
+        """``[{code, createdAt, startedAt|None, lastActivityAt, humans, bots, games, rounds, roundsFinished}]`` (Unix-Zeit)."""
+    def events(self) -> list[dict]:
+        """Anonyme Zaehlereignisse beendeter Spiele: ``[{at, duration|None, humans}]`` (Unix-Zeit, Sekunden)."""
 
 
 class NullStats:
     def table_created(self, code, now=None): pass
     def round_started(self, code, humans, bots, now=None): pass
-    def game_finished(self, code, now=None): pass
+    def game_finished(self, code, now=None, duration=None): pass
+    def round_finished(self, code, now=None): pass
     def activity(self, code, now=None): pass
     def logs(self): return []
+    def events(self): return []
 
 
 class MemoryStats:
     def __init__(self, clock=time.time) -> None:
         self._logs: list[dict] = []
+        self._events: list[dict] = []
         self._clock = clock
         self._lock = threading.Lock()
 
@@ -41,7 +47,7 @@ class MemoryStats:
         now = self._clock() if now is None else now
         with self._lock:
             self._logs.append({"code": code, "createdAt": now, "startedAt": None, "lastActivityAt": now,
-                               "humans": 0, "bots": 0, "games": 0, "rounds": 0})
+                               "humans": 0, "bots": 0, "games": 0, "rounds": 0, "roundsFinished": 0})
 
     def round_started(self, code, humans, bots, now=None):
         now = self._clock() if now is None else now
@@ -53,13 +59,26 @@ class MemoryStats:
             log.update(humans=humans, bots=bots, lastActivityAt=now)
             log["rounds"] += 1
 
-    def game_finished(self, code, now=None):
+    def game_finished(self, code, now=None, duration=None):
         now = self._clock() if now is None else now
         with self._lock:
             log = self._latest(code)
             if log is not None:
                 log["games"] += 1
                 log["lastActivityAt"] = now
+                self._events.append({"at": now, "duration": duration, "humans": log["humans"]})
+
+    def round_finished(self, code, now=None):
+        now = self._clock() if now is None else now
+        with self._lock:
+            log = self._latest(code)
+            if log is not None:
+                log["roundsFinished"] += 1
+                log["lastActivityAt"] = now
+
+    def events(self):
+        with self._lock:
+            return [dict(e) for e in self._events]
 
     def activity(self, code, now=None):
         now = self._clock() if now is None else now

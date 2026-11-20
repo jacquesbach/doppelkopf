@@ -83,6 +83,8 @@ def create_app(test_config=None):
         captcha=CaptchaGuard(app.config["SECRET_KEY"]), secret=app.config["SECRET_KEY"],
         trust_proxy=bool(app.config.get("TRUST_PROXY")))), url_prefix="/api")
 
+    _register_ops(app, service, runner, chat, admin_auth, stats)
+
     with app.app_context():
         db.create_all()
         _ensure_columns()
@@ -96,12 +98,73 @@ def create_app(test_config=None):
     return app
 
 
+def _register_ops(app, service, runner, chat, admin_auth, stats):
+    """Betreiber-Werkzeuge: Design-Einstellungen/Banner, Live-Uebersicht, Auswertungen, Fehler-Log, Systemstatus."""
+    import logging
+    import time
+    from .models import Room
+    from .ops.api import OpsDeps, create_ops_blueprint
+    from .ops.errors import LogHandler
+    from .ops.sql import SqlErrors, SqlLive, SqlSettings, SqlSystem
+    from .presence import PresenceRegistry
+    from .services import public_room
+
+    settings, errors, system = SqlSettings(), SqlErrors(), SqlSystem()
+    presence = PresenceRegistry()
+    app.extensions.update(site_settings=settings, error_log=errors, presence=presence)
+    db_path = app.config["SQLALCHEMY_DATABASE_URI"].removeprefix("sqlite:///") if \
+        app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:///") else None
+
+    def notify(code, event, payload):
+        if event == "room:refresh":
+            room = Room.query.filter_by(code=code).first()
+            if room:
+                socketio.emit("room:state", public_room(room), to=code)
+        else:
+            socketio.emit(event, payload, to=code)
+
+    def runtime():
+        import os
+        disk_dir = os.path.dirname(os.path.abspath(db_path)) if db_path else app.instance_path
+        return {"db": system.db_info(),
+                "runtime": {"botLoops": len(getattr(runner, "_running", ()) or ()),
+                            "socketConnections": len(_socket_members), "presenceOnline": presence.online_count(),
+                            "disk": system.disk(disk_dir)}}
+
+    app.register_blueprint(create_ops_blueprint(OpsDeps(
+        admin=admin_auth, settings=settings, live=SqlLive(chat), errors=errors, stats=stats, system=runtime,
+        notify=notify, started_at=time.time())), url_prefix="/api")
+
+    if not app.config.get("TESTING"):
+        # Alle ERROR-Eintraege mit Ausnahme (auch aus der Bot-Schleife) landen im Fehler-Log des Dashboards.
+        logging.getLogger().addHandler(LogHandler(errors))
+
+    from flask import jsonify
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(Exception)
+    def unexpected(exc):
+        if isinstance(exc, HTTPException):
+            return exc
+        import sys
+        from flask import request
+        try:
+            db.session.rollback()          # eine offene Schreibsperre darf das Protokollieren nicht blockieren
+        except Exception:  # pragma: no cover
+            pass
+        # Docker-Log UND Fehler-Log des Dashboards (LogHandler liest ``path`` aus dem Eintrag)
+        logging.getLogger("doppelkopf.http").error("Unerwarteter Fehler bei %s", request.path,
+                                                   exc_info=sys.exc_info(), extra={"path": request.path})
+        return jsonify({"error": "Interner Fehler. Bitte versuche es später noch einmal."}), 500
+
+
 def _ensure_columns():
     """Entwicklungs-Datenbanken aus Meilenstein 0-1 um neue Spalten ergaenzen (kein Alembic noetig)."""
     from sqlalchemy import inspect, text
     wanted = {"room": [("settings_json", "TEXT NOT NULL DEFAULT '{}'"), ("is_public", "BOOLEAN NOT NULL DEFAULT 0"),
                       ("takeover_seconds", "INTEGER NOT NULL DEFAULT 180"), ("lab_spec_json", "TEXT")],
-              "game_snapshot": [("schema_version", "INTEGER NOT NULL DEFAULT 1")]}
+              "game_snapshot": [("schema_version", "INTEGER NOT NULL DEFAULT 1")],
+              "table_log": [("rounds_finished", "INTEGER NOT NULL DEFAULT 0")]}
     inspector = inspect(db.engine)
     with db.engine.begin() as conn:
         for table, columns in wanted.items():
@@ -146,9 +209,96 @@ def register_socket_handlers():
         if view is not None:  # personalisierte Sicht, nie die der anderen
             emit("game:state", view, to=f"member:{member.id}")
 
+    # --- Freiwilliger Online-Status (ohne Konto, nur im Arbeitsspeicher; siehe presence.py) ---
+    def _presence():
+        from flask import current_app
+        return current_app.extensions["presence"]
+
+    def _friends_allowed() -> bool:
+        from flask import current_app
+        return bool(current_app.extensions["site_settings"].get().get("friendsEnabled", True))
+
+    def _announce(code, online, name=""):
+        socketio.emit("presence:update", {"code": code, "online": online, "name": name}, to=f"watch:{code}")
+
+    @socketio.on("presence:hello")
+    def presence_hello(payload):
+        payload = payload if isinstance(payload, dict) else {}
+        if not _friends_allowed():
+            emit("presence:error", {"message": "Die Freunde-Funktion ist gerade ausgeschaltet."})
+            return
+        registry = _presence()
+        try:
+            code, came_online = registry.hello(request.sid, payload.get("code"), payload.get("name"))
+        except ValueError as exc:
+            emit("presence:error", {"message": str(exc)})
+            return
+        join_room(f"fc:{code}")
+        emit("presence:ready", {"code": code})
+        if came_online:
+            _announce(code, True, registry.name_of(code) or "")
+
+    @socketio.on("presence:watch")
+    def presence_watch(payload):
+        from flask_socketio import leave_room as _leave
+        payload = payload if isinstance(payload, dict) else {}
+        registry = _presence()
+        try:
+            old, new = registry.watch(request.sid, payload.get("codes"))
+        except ValueError as exc:
+            emit("presence:error", {"message": str(exc)})
+            return
+        for code in old - new:
+            _leave(f"watch:{code}")
+        for code in new:
+            join_room(f"watch:{code}")
+        emit("presence:state", {"friends": registry.status(new)})
+
+    @socketio.on("presence:goodbye")
+    def presence_goodbye(payload=None):
+        from flask_socketio import leave_room as _leave
+        code, offline = _presence().goodbye(request.sid)
+        if code:
+            _leave(f"fc:{code}")
+        if offline:
+            _announce(code, False)
+
+    @socketio.on("presence:invite")
+    def presence_invite(payload):
+        from .presence import valid_code, valid_table
+        payload = payload if isinstance(payload, dict) else {}
+        registry = _presence()
+        sender = registry.code_of(request.sid)
+        target, table = valid_code(payload.get("to")), valid_table(payload.get("table"))
+        if sender is None or target is None or table is None:
+            emit("presence:error", {"message": "Einladung nicht möglich."})
+            return
+        token = str(payload.get("token", ""))
+        member = Member.query.filter_by(session_token_hash=token_digest(token)).first() if token else None
+        room = Room.query.filter_by(code=table).first()
+        if room is None or member is None or member.room_id != room.id or member.is_bot:
+            emit("presence:error", {"message": "Du kannst nur zu deinem eigenen Tisch einladen."})
+            return
+        if not registry.allow_invite(request.sid):
+            emit("presence:error", {"message": "Zu viele Einladungen. Bitte warte kurz."})
+            return
+        delivered = registry.is_online(target)
+        if delivered:
+            socketio.emit("presence:invite", {"from": registry.name_of(sender) or "Jemand", "table": table,
+                                              "hasPassword": bool(room.password_hash)}, to=f"fc:{target}")
+        emit("presence:invited", {"to": target, "delivered": delivered})
+
+    @socketio.on_error_default
+    def socket_error(exc):
+        import logging
+        logging.getLogger("doppelkopf.socket").error("Fehler in einem Socket-Ereignis", exc_info=(type(exc), exc, exc.__traceback__))
+
     @socketio.on("disconnect")
     def socket_disconnected(reason=None):
         from . import db
+        code, offline = _presence().goodbye(request.sid)
+        if offline:
+            _announce(code, False)
         member_id = _socket_members.pop(request.sid, None)
         if member_id and member_id not in _socket_members.values():
             member = db.session.get(Member, member_id)

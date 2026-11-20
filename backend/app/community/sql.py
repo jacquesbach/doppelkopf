@@ -14,7 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from .. import db
-from ..models import GameSnapshot, Phrase, Room, Setting, Suggestion, SuggestionVote, TableLog
+from ..models import GameEvent, GameSnapshot, Phrase, Room, Setting, Suggestion, SuggestionVote, TableLog
 from .phrases import DEFAULT_PHRASES
 
 
@@ -174,12 +174,26 @@ class SqlStats:
         db.session.commit()
 
     @_never_break_the_game
-    def game_finished(self, code, now=None):
+    def game_finished(self, code, now=None, duration=None):
         log = self._latest(code)
         if log is not None:
+            moment = _dt(time.time() if now is None else now)
             log.games += 1
+            log.last_activity_at = moment
+            db.session.add(GameEvent(at=moment, duration_s=None if duration is None else int(duration), humans=log.humans))
+            db.session.commit()
+
+    @_never_break_the_game
+    def round_finished(self, code, now=None):
+        log = self._latest(code)
+        if log is not None:
+            log.rounds_finished += 1
             log.last_activity_at = _dt(time.time() if now is None else now)
             db.session.commit()
+
+    def events(self):
+        return [{"at": _ts(e.at), "duration": e.duration_s, "humans": e.humans}
+                for e in GameEvent.query.order_by(GameEvent.id).all()]
 
     @_never_break_the_game
     def activity(self, code, now=None):
@@ -191,7 +205,7 @@ class SqlStats:
     def logs(self):
         return [{"code": l.code, "createdAt": _ts(l.created_at), "startedAt": _ts(l.started_at),
                  "lastActivityAt": _ts(l.last_activity_at), "humans": l.humans, "bots": l.bots,
-                 "games": l.games, "rounds": l.rounds} for l in TableLog.query.order_by(TableLog.id).all()]
+                 "games": l.games, "rounds": l.rounds, "roundsFinished": l.rounds_finished} for l in TableLog.query.order_by(TableLog.id).all()]
 
 
 class SqlTableOverview:

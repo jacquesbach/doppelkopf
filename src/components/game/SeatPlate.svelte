@@ -69,6 +69,7 @@
     font-family: var(--font-mono);
     font-size: 0.82rem;
     font-weight: 700;
+    color: var(--table-ink, #000);
   }
   .n {
     max-inline-size: 11em;
@@ -85,6 +86,7 @@
     padding-inline: 6px;
     background: var(--nb-yellow);
     border: 2px solid #000;
+    color: #000;
   }
   .tag {
     font-size: 0.68rem;
@@ -94,6 +96,7 @@
     padding-inline: 5px;
     border: 2px solid #000;
     background: var(--nb-bg);
+    color: #000;
   }
   .tag.say {
     background: var(--nb-coral);

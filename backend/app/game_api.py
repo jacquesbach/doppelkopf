@@ -61,6 +61,16 @@ def _rule_error(exc: RuleViolation):
     return _err(exc.message, status, code=exc.code)
 
 
+def _duration(summary: dict) -> float | None:
+    """Spieldauer in Sekunden aus den Zeitstempeln der Zusammenfassung (``None``, wenn sie fehlen oder unplausibel sind)."""
+    from datetime import datetime
+    try:
+        seconds = (datetime.fromisoformat(summary["finishedAt"]) - datetime.fromisoformat(summary["startedAt"])).total_seconds()
+    except (KeyError, TypeError, ValueError):
+        return None
+    return seconds if seconds >= 0 else None
+
+
 class Publisher:
     """Veroeffentlicht Spielstaende: persoenliche Sichten an alle Mitglieder, Raumstatus bei Rundenende."""
 
@@ -75,8 +85,10 @@ class Publisher:
                                               for mid in self.access.member_ids(code)})
 
     def summaries(self, code: str, summaries: list[dict]) -> None:
-        for _ in summaries:
-            self.stats.game_finished(code)         # Statistik: Spiele je Tisch
+        for s in summaries:
+            self.stats.game_finished(code, duration=_duration(s))         # Statistik: Spiele je Tisch, Dauer
+            if s.get("roundFinished"):
+                self.stats.round_finished(code)
         if any(s["roundFinished"] for s in summaries):
             self.access.set_status(code, "finished")
             self.notifier.room_updated(code)

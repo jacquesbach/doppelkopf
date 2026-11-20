@@ -1,4 +1,5 @@
 <script>
+  import { presence } from "../lib/presence.svelte.js";
   import Logo from "../components/ui/Logo.svelte";
   import PublicTables from "../components/ui/PublicTables.svelte";
   import SuggestionsModal from "../components/community/SuggestionsModal.svelte";
@@ -22,6 +23,11 @@
         <a href="#modes" class="nb-nav-link">Modi</a>
         <a href="/regeln" use:link class="nb-nav-link">Regeln</a>
       <a href="/beitreten" use:link class="nb-nav-link">Beitreten</a>
+        {#if presence.available}
+          <button type="button" class="nb-nav-link nb-nav-btn" onclick={() => presence.open()}>
+            <span class="nb-dot" class:on={presence.enabled && presence.connected} aria-hidden="true"></span>Online
+          </button>
+        {/if}
         <a href="/neu" use:link class="nb-btn nb-btn-sm nb-bg-yellow">Jetzt spielen</a>
       </nav>
     </div>
@@ -321,13 +327,7 @@
 
 /* 1. Design Tokens (Canonical Palette, Borders & 3-Tier Shadow System) */
 .nb-page {
-  --nb-bg: #fffdf5;
   --nb-ink: #000000;
-  --nb-yellow: #ffd23f;
-  --nb-coral: #ff6b6b;
-  --nb-blue: #74b9ff;
-  --nb-green: #88d498;
-  --nb-lavender: #b8a9fa;
 
   --nb-border: 3px solid var(--nb-ink);
   --nb-shadow-sm: 3px 3px 0 0 var(--nb-ink);
@@ -409,6 +409,25 @@
   display: flex;
   align-items: center;
   gap: 24px;
+}
+
+.nb-nav-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.nb-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #000;
+  background: #fff;
+  margin-right: 6px;
+}
+.nb-dot.on {
+  background: #1fa34a;
 }
 
 .nb-nav-link {

@@ -21,6 +21,7 @@ Die `.env` kommt nie ins Git.
 |---|---|---|---|
 | `SECRET_KEY` | **Secret** | – (Pflicht) | signiert Captcha und Betreiber-Anmeldung. Mind. 32 Zeichen: `python3 -c "import secrets; print(secrets.token_hex(32))"` |
 | `ADMIN_PASSWORD` | **Secret** | leer = `/admin` aus | Passwort des Betreiber-Backends, mind. 10 Zeichen |
+| `APP_VERSION`, `DEPLOYED_AT` | automatisch | leer = „unbekannt“ | Version (Commit) und Zeitpunkt des letzten Deploys für den Systemstatus. Die GitHub-Action schreibt beide beim Deploy in die `.env` auf dem Server, du setzt sie nicht selbst |
 | `SSH_HOST` | **Secret** | – (Pflicht) | Adresse deines Servers |
 | `SSH_USER` | **Secret** | – (Pflicht) | Benutzer für den Deploy (muss `docker` ausführen dürfen) |
 | `SSH_PRIVATE_KEY` | **Secret** | – (Pflicht) | privater Schlüssel nur für den Deploy |

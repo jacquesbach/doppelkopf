@@ -2,6 +2,7 @@
   import { link } from "../../lib/nav.svelte.js";
   import Logo from "./Logo.svelte";
   import GithubLink from "./GithubLink.svelte";
+  import FriendsButton from "../community/FriendsButton.svelte";
 
   let { children, narrow = false } = $props();
 </script>
@@ -13,7 +14,10 @@
         <Logo size={40} />
         <span class="nx-logo-text">DOPPELKOPF.CC</span>
       </a>
-      <a href="/beitreten" use:link class="nx-btn nx-btn-sm">Tisch beitreten</a>
+      <div class="actions">
+        <FriendsButton class="nx-btn nx-btn-sm nx-bg-white" />
+        <a href="/beitreten" use:link class="nx-btn nx-btn-sm">Tisch beitreten</a>
+      </div>
     </div>
   </header>
 
@@ -35,3 +39,7 @@
     </div>
   </footer>
 </div>
+
+<style>
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+</style>

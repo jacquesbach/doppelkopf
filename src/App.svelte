@@ -8,10 +8,22 @@
   import Admin from "./pages/Admin.svelte";
   import NotFound from "./pages/NotFound.svelte";
   import Rules from "./pages/Rules.svelte";
+  import SiteBanner from "./components/ui/SiteBanner.svelte";
+  import FriendsHost from "./components/community/FriendsHost.svelte";
+  import { api } from "./lib/services.js";
+  import { siteSettings } from "./lib/siteSettings.svelte.js";
+  import { presence } from "./lib/presence.svelte.js";
+  import { onMount } from "svelte";
   import { applySeo } from "./lib/seo.js";
   import { SITE_URL } from "./lib/site.js";
 
   const route = $derived(nav.route);
+
+  // Design-Einstellungen und Banner des Betreibers laden (ohne Antwort gelten die Standardwerte).
+  onMount(async () => {
+    await siteSettings.load(api);
+    presence.sync(); // Online-Status nur verbinden, wenn eingeschaltet und vom Betreiber erlaubt
+  });
 
   // Titel, Beschreibung, robots und kanonische Adresse folgen jedem Seitenwechsel (Single-Page-App).
   $effect(() => {
@@ -19,6 +31,7 @@
   });
 </script>
 
+<SiteBanner />
 {#if route.name === "landing"}
   <Landing />
 {:else if route.name === "create"}
@@ -36,3 +49,5 @@
 {:else}
   <NotFound />
 {/if}
+
+{#if route.name !== "admin"}<FriendsHost />{/if}

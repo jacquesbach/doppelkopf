@@ -95,3 +95,26 @@ class TableLog(db.Model):
     bots = db.Column(db.Integer, nullable=False, default=0)
     games = db.Column(db.Integer, nullable=False, default=0)
     rounds = db.Column(db.Integer, nullable=False, default=0)
+    rounds_finished = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+
+
+class GameEvent(db.Model):
+    """Anonymes Zaehlereignis: ein beendetes Spiel (Zeitpunkt, Dauer, Zahl der Menschen). Keine Namen, kein Tisch-Code."""
+    id = db.Column(db.Integer, primary_key=True)
+    at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    duration_s = db.Column(db.Integer, nullable=True)
+    humans = db.Column(db.Integer, nullable=False, default=0)
+
+
+class ErrorEntry(db.Model):
+    """Technischer Fehler des Servers fuer das Betreiber-Dashboard (gleiche Fehler werden zusammengezaehlt)."""
+    id = db.Column(db.Integer, primary_key=True)
+    sig = db.Column(db.String(40), nullable=False, index=True)
+    source = db.Column(db.String(16), nullable=False, default="server")
+    origin = db.Column(db.String(120), nullable=False, default="")
+    kind = db.Column(db.String(80), nullable=False, default="")
+    message = db.Column(db.Text, nullable=False, default="")
+    trace = db.Column(db.Text, nullable=False, default="")
+    count = db.Column(db.Integer, nullable=False, default=1)
+    first_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    last_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False, index=True)

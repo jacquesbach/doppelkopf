@@ -1,4 +1,5 @@
 <script>
+  import { presence } from "../lib/presence.svelte.js";
   import Logo from "../components/ui/Logo.svelte";
   import { tick } from "svelte";
   import { link, navigate } from "../lib/nav.svelte.js";
@@ -139,9 +140,14 @@
                       <span class="nb-player-name nb-text-muted">Warte auf Mitspieler...</span>
                       <span class="nb-mono-sub">Link teilen zum Einladen</span>
                     </div>
-                    <button type="button" class="nb-btn nb-btn-sm nb-bg-blue" onclick={invite}>
-                      {copied ? "KOPIERT ✓" : "EINLADEN"}
-                    </button>
+                    <div class="nb-invite-actions">
+                      <button type="button" class="nb-btn nb-btn-sm nb-bg-blue" onclick={invite}>
+                        {copied ? "KOPIERT ✓" : "EINLADEN"}
+                      </button>
+                      {#if presence.available}
+                        <button type="button" class="nb-btn nb-btn-sm nb-bg-white" onclick={() => presence.open()}>FREUNDE</button>
+                      {/if}
+                    </div>
                   </div>
                 {/if}
               {/each}
@@ -309,14 +315,14 @@
 /* Schriften: lokal gebündelt über @fontsource (siehe src/main.js) */
 
 /* Design Tokens */
+.nb-invite-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .nb-page {
-  --nb-bg: #fffdf5;
   --nb-ink: #000000;
-  --nb-yellow: #ffd23f;
-  --nb-coral: #ff6b6b;
-  --nb-blue: #74b9ff;
-  --nb-green: #88d498;
-  --nb-lavender: #b8a9fa;
 
   --nb-border: 3px solid var(--nb-ink);
   --nb-shadow-sm: 3px 3px 0 0 var(--nb-ink);

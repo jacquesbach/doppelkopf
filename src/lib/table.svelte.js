@@ -2,6 +2,7 @@
 import { ApiError } from "./api.js";
 import { chatToast, describeEvent, justFinished, newEvents, redealToast } from "./events.js";
 import { createRoomSocket } from "./socket.js";
+import { REVEAL_MS, declarationsJustClosed } from "./view.js";
 
 // Antwortet der Server (auch mit einem Fehler wie 404/409), besteht die Verbindung; Netzwerkfehler und 502–504 nicht.
 const RESULT_DELAY_MS = 4500; // so lange bleibt der letzte Stich sichtbar, bevor das Ergebnis aufgeht
@@ -27,6 +28,10 @@ export class TableStore {
   chatOpen = false;
   // Nummer des Spiels, dessen Ergebnis noch zurückgehalten wird, damit man den letzten Stich in Ruhe ansehen kann.
   resultDelayGame = $state(null);
+  // Nummer des Spiels, dessen Vorbehalts-Antworten nach der Abfrage noch kurz sichtbar bleiben.
+  revealGame = $state(null);
+  // Nachricht des Betreibers: { message, closed } – bei closed ist der Tisch beendet.
+  notice = $state(null);
 
   #deps;
   #socket = null;
@@ -106,6 +111,7 @@ export class TableStore {
         onGame: (view) => this.#applyView(view),
         onChat: (m) => this.#addChat(m, true),
         onError: (e) => this.#fail(e?.error ?? e?.message ?? "Verbindungsfehler"),
+        onNotice: (n) => this.#receiveNotice(n),
       },
     });
   }
@@ -127,7 +133,27 @@ export class TableStore {
     const redeal = redealToast(this.view, view);
     if (redeal) this.#pushToast(redeal);
     if (justFinished(this.view, view)) this.#holdResult(view.table.gameNumber);
+    if (declarationsJustClosed(this.view, view)) this.#holdDeclarations(view.table.gameNumber);
     this.#setView(view);
+  }
+
+  /** Nach der letzten Antwort der Vorbehaltsabfrage bleiben alle Antworten noch einen Moment sichtbar. */
+  #holdDeclarations(gameNumber) {
+    this.revealGame = gameNumber;
+    this.#timers.push(setTimeout(() => {
+      if (this.revealGame === gameNumber) this.revealGame = null;
+    }, REVEAL_MS));
+  }
+
+  #receiveNotice(notice) {
+    const message = typeof notice?.message === "string" ? notice.message : "";
+    if (!message) return;
+    this.notice = { message, closed: !!notice.closed };
+    if (notice.closed) this.#deps.sessions.remove(this.code); // der Tisch ist weg: Platz vergessen
+  }
+
+  dismissNotice() {
+    this.notice = null;
   }
 
   #setView(view) {

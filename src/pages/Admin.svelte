@@ -1,7 +1,10 @@
 <script>
   import { onMount } from "svelte";
   import PageShell from "../components/ui/PageShell.svelte";
-  import AdminTables from "../components/admin/AdminTables.svelte";
+  import AdminLive from "../components/admin/AdminLive.svelte";
+  import AdminInsights from "../components/admin/AdminInsights.svelte";
+  import AdminSystem from "../components/admin/AdminSystem.svelte";
+  import AdminDesign from "../components/admin/AdminDesign.svelte";
   import AdminStats from "../components/admin/AdminStats.svelte";
   import AdminPhrases from "../components/admin/AdminPhrases.svelte";
   import AdminSuggestions from "../components/admin/AdminSuggestions.svelte";
@@ -11,8 +14,11 @@
   // Das Token liegt nur im Tab-Speicher (sessionStorage): Tab zu = abgemeldet.
   const KEY = "doko.admin.v1";
   const TABS = [
-    ["tables", "TISCHE"],
+    ["live", "LIVE"],
     ["stats", "STATISTIK"],
+    ["insights", "AUSWERTUNG"],
+    ["system", "SYSTEM"],
+    ["design", "DESIGN"],
     ["phrases", "SPRÜCHE"],
     ["suggestions", "VORSCHLÄGE"],
     ["lab", "TEST-TISCH"],
@@ -23,7 +29,7 @@
   let password = $state("");
   let error = $state("");
   let busy = $state(false);
-  let tab = $state("tables");
+  let tab = $state("live");
 
   function readToken() {
     try {
@@ -118,8 +124,14 @@
 
     <section class="panel nx-box" role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">
       {#key tab}
-        {#if tab === "tables"}
-          <AdminTables {token} onAuthLost={authLost} />
+        {#if tab === "live"}
+          <AdminLive {token} onAuthLost={authLost} />
+        {:else if tab === "insights"}
+          <AdminInsights {token} onAuthLost={authLost} />
+        {:else if tab === "system"}
+          <AdminSystem {token} onAuthLost={authLost} />
+        {:else if tab === "design"}
+          <AdminDesign {token} onAuthLost={authLost} />
         {:else if tab === "stats"}
           <AdminStats {token} onAuthLost={authLost} />
         {:else if tab === "phrases"}

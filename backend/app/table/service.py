@@ -32,7 +32,9 @@ class Outcome:
 
 # Bedenkzeiten im getakteten Betrieb (Sekunden)
 THINK = (1.0, 1.7)      # Botkarte
-SHORT = 0.9             # Vorbehalt, Taufe, Ansage
+SHORT = 1.2             # Taufe, Ansage, Vorbehalts-Entscheidung (Solo/Armut)
+DECLARE = 1.7           # Vorbehaltsabfrage ("gesund"/"Vorbehalt"): so lange, dass man jede Antwort mitlesen kann
+REVEAL = 3.0            # nach der letzten Antwort: Ergebnis der Abfrage bleibt sichtbar, bevor die erste Karte faellt
 TRICK_PAUSE = 2.4       # nach einem vollstaendigen Stich: alle sollen ihn sehen koennen
 
 
@@ -56,6 +58,13 @@ def _acting_seat(game) -> int | None:
     if game.phase is Phase.PLAYING:
         return game.mandatory_pending if game.mandatory_pending is not None else game.turn
     return None
+
+
+def _just_after_reservations(game) -> bool:
+    """Spiel hat gerade begonnen, nachdem eine Vorbehaltsabfrage stattfand: noch keine Karte gespielt."""
+    if game.tricks or game.current_trick or not game.log:
+        return False
+    return game.log[-1].get("type") == "play_started" and any(e.get("type") == "declared" for e in game.log)
 
 
 def run_bots(table: TableState, rng: random.Random | None = None) -> list[dict]:
@@ -213,7 +222,11 @@ class TableService:
         if game.phase is Phase.PLAYING:
             if not game.current_trick and game.tricks:
                 return TRICK_PAUSE
+            if _just_after_reservations(game):
+                return REVEAL
             return (self.rng or random).uniform(*THINK)
+        if game.phase is Phase.RESERVATION_QUERY:
+            return DECLARE
         return SHORT
 
     def bot_step(self, code: str) -> "Outcome | None":

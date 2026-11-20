@@ -1,11 +1,13 @@
 <script>
   import { untrack } from "svelte";
   import { link } from "../../lib/nav.svelte.js";
+  import { tableTheme } from "../../lib/theme.svelte.js";
   import { cardId } from "../../lib/cards.js";
   import { pickReady, prunePick, togglePick } from "../../lib/selection.js";
   import {
     actingSeat,
     activeDialog,
+    declaredAnswers,
     announcementsBySeat,
     gameHeadline,
     isHolding,
@@ -112,14 +114,12 @@
     untrack(() => store.setChatOpen(open));
   });
 
-  const declared = $derived(
-    game.phase === "reservation_query" || game.phase === "reservation_resolution"
-      ? game.declarations.map((d, seat) => ({ seat, d })).filter((x) => x.d)
-      : [],
-  );
+  // Antworten der Vorbehaltsabfrage: während der Abfrage und der Folgephasen sichtbar, danach noch kurz im Nachlauf.
+  const declared = $derived(declaredAnswers(view, store.revealGame === gameNumber));
+  const dark = $derived(tableTheme.dark);
 </script>
 
-<div class="nx-page game">
+<div class="nx-page game" class:dark>
   <header class="nx-header">
     <div class="nx-container nx-header-inner bar">
       <a href="/" use:link class="nx-logo" aria-label="Zur Startseite">
@@ -140,6 +140,9 @@
           <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("last")} disabled={!game.lastTrick}>LETZTER STICH</button>
         {/if}
         <button type="button" class="nx-btn nx-btn-sm nx-bg-white sec" onclick={() => openInfo("history")}>PROTOKOLL</button>
+        <button type="button" class="nx-btn nx-btn-sm nx-bg-white" aria-pressed={dark} aria-label={dark ? "Zum hellen Tisch wechseln" : "Zum dunklen Tisch wechseln"} title={dark ? "Zum hellen Tisch wechseln" : "Zum dunklen Tisch wechseln"} onclick={() => tableTheme.toggle()}>
+          <span aria-hidden="true">{dark ? "☀" : "☾"}</span><span class="hide-sm"> {dark ? "HELL" : "DUNKEL"}</span>
+        </button>
         <button type="button" class="nx-btn nx-btn-sm nx-bg-blue chat" onclick={() => openInfo("chat")}>
           CHAT{#if store.unread > 0}<span class="unread" aria-label="{store.unread} ungelesen">{store.unread}</span>{/if}
         </button>
@@ -178,6 +181,13 @@
 
       <div class="mid">
         <p class="status" role="status" aria-live="polite">{statusText(view)}</p>
+        {#if declared.length}
+          <ul class="declared">
+            {#each declared as x (x.seat)}
+              <li class="nx-badge">{seatName(view, x.seat)}: {x.d === "reservation" ? "Vorbehalt" : "gesund"}</li>
+            {/each}
+          </ul>
+        {/if}
         {#if dialog}
           <DecisionPanel
             {dialog}
@@ -203,13 +213,6 @@
               <span class="cards" aria-hidden="true"><CardBack /><CardBack /><CardBack /></span>
               <span class="note">Armut von {seatName(view, game.poverty?.seat)}: 3 Karten liegen verdeckt bereit.</span>
             </div>
-          {/if}
-          {#if declared.length}
-            <ul class="declared">
-              {#each declared as x (x.seat)}
-                <li class="nx-badge">{seatName(view, x.seat)}: {x.d === "reservation" ? "Vorbehalt" : "gesund"}</li>
-              {/each}
-            </ul>
           {/if}
           <!-- Stich: Karten liegen im Kreuz und überlappen sich in der Reihenfolge, in der sie gespielt wurden -->
           <div class="trick" aria-label="Aktueller Stich">
@@ -306,6 +309,23 @@
     --card-w: clamp(46px, 11vw, 84px);
     background: var(--nb-paper);
   }
+  /* Dunkler Tisch: nur diese Ansicht. Fenster, Knöpfe und Karten behalten ihre hellen Farben; nur Text direkt auf dem Tisch wird hell. */
+  .game.dark {
+    --table-ink: #f4f1e6;
+    background: #1c1a27;
+  }
+  .game.dark :global(.nx-header) {
+    background: #2b2838;
+  }
+  .game.dark :global(.nx-logo) {
+    color: var(--table-ink);
+  }
+  .game.dark .fly {
+    filter: drop-shadow(4px 4px 0 rgba(244, 241, 230, 0.4));
+  }
+  .game.dark .poverty-stack .note {
+    color: var(--table-ink);
+  }
   .bar {
     flex-wrap: wrap;
     padding-block: 8px;
@@ -346,6 +366,7 @@
     font-weight: 700;
     font-size: 0.9rem;
     min-height: 1.5em;
+    color: var(--table-ink, #000);
   }
   /* Vier Plätze an den vier Seiten: Gegner mit Kartenstapel am Rand, Stich in der Mitte, eigene Hand unten */
   .table {
@@ -490,6 +511,7 @@
     font-weight: 700;
     font-size: 0.85rem;
     text-align: center;
+    color: var(--table-ink, #000);
   }
   .away {
     display: flex;
@@ -577,6 +599,9 @@
     }
     .fly {
       filter: drop-shadow(3px 3px 0 #000);
+    }
+    .game.dark .fly {
+      filter: drop-shadow(3px 3px 0 rgba(244, 241, 230, 0.4));
     }
     .me {
       align-self: end;

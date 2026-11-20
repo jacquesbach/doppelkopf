@@ -95,21 +95,21 @@
     transform-origin: 50% 100%;
   }
   /* Armut: soeben übernommene Karten tragen ein kleines „NEU“ */
-  li.fresh {
-    z-index: 3;
-  }
-  li.fresh::after {
+  /* Das Etikett hängt an der Karte selbst (im gekippten Rahmen) und dreht sich mit ihr; die Karte bleibt eingereiht. */
+  li.fresh .tilt::after {
     content: "NEU";
     position: absolute;
-    top: -12px;
-    left: 2px;
-    padding: 0 4px;
+    top: -9px;
+    left: -1px;
+    padding: 0 3px;
     background: var(--nb-yellow, #ffd23f);
     border: 2px solid #000;
     font-family: var(--font-mono);
     font-weight: 800;
-    font-size: 0.6rem;
-    line-height: 1.35;
+    font-size: 0.56rem;
+    line-height: 1.3;
+    transform: rotate(-7deg);
+    transform-origin: 0 100%;
     pointer-events: none;
     z-index: 7;
   }
@@ -130,11 +130,18 @@
   }
   /* Handy: stärker überlappender Fächer; oben Platz für die herausragende, ausgewählte Karte. */
   @media (max-width: 640px) {
+    /* Die Hand beginnt direkt am unteren Bildschirmrand: Karten etwas länger gezogen, unten angeschnitten */
     .hand {
       --step: 2.1deg;
       --sag: 0.8px;
-      padding: 30px 4px calc(var(--sag) * var(--n, 12) * var(--n, 12) / 4 + 8px);
-      min-height: calc(var(--card-w, 72px) * 1.4 + 40px);
+      align-self: stretch;
+      padding: 30px 4px 0;
+      min-height: 0;
+      height: calc(30px + var(--card-w, 72px) * 1.6 * 0.8);
+      overflow: hidden;
+    }
+    .tilt :global(.card) {
+      aspect-ratio: 5 / 8;
     }
     li + li {
       margin-left: calc(var(--card-w, 72px) * -0.54);

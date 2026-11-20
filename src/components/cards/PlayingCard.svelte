@@ -26,7 +26,7 @@
 </script>
 
 {#snippet face()}
-  <svg viewBox="0 0 100 140" class="face" aria-hidden="true" focusable="false">
+  <svg viewBox="0 0 100 140" preserveAspectRatio="none" class="face" aria-hidden="true" focusable="false">
     <rect x="1" y="1" width="98" height="138" rx="8" fill="#ffffff" stroke="#2b2b33" stroke-width="2" />
 
     <g class="std">

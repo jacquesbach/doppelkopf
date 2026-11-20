@@ -214,7 +214,7 @@
           <!-- Stich: Karten liegen im Kreuz und überlappen sich in der Reihenfolge, in der sie gespielt wurden -->
           <div class="trick" aria-label="Aktueller Stich">
             {#each shown.plays as p, i (p.seat)}
-              <div class="slot {placeOf(p.seat)}" class:winner={shown.complete && shown.winnerSeat === p.seat} style="z-index:{i + 1}">
+              <div class="slot {placeOf(p.seat)}" style="z-index:{i + 1}">
                 {#key cardId(p.card)}
                   <div class="fly"><div class="rot"><PlayingCard card={p.card} /></div></div>
                 {/key}
@@ -484,11 +484,6 @@
   @keyframes from-top { from { transform: translateY(-150px) scale(0.8); opacity: 0.2; } to { transform: none; opacity: 1; } }
   @keyframes from-left { from { transform: translateX(-190px) scale(0.85); opacity: 0.2; } to { transform: none; opacity: 1; } }
   @keyframes from-right { from { transform: translateX(190px) scale(0.85); opacity: 0.2; } to { transform: none; opacity: 1; } }
-  .slot.winner .rot {
-    outline: 4px solid var(--nb-yellow);
-    outline-offset: 3px;
-    border-radius: 8%;
-  }
   .note {
     margin: 0;
     font-family: var(--font-mono);
@@ -554,7 +549,7 @@
     .stage {
       display: flex;
       flex-direction: column;
-      padding: 0 0 8px;
+      padding: 0;
       overflow-x: clip;
     }
     .away {
@@ -578,9 +573,6 @@
     .mid {
       min-height: 0;
       align-self: stretch;
-      border: 3px solid #000;
-      background: var(--nb-bg);
-      box-shadow: var(--nb-shadow-sm);
       padding: 6px 4px;
     }
     .fly {
@@ -588,7 +580,6 @@
     }
     .me {
       align-self: end;
-      padding-inline: 6px;
     }
     .note {
       font-size: 0.74rem;

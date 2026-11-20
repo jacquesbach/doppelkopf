@@ -312,3 +312,4 @@ Ergebnis-Dialog, Pflichtsolo, Bockrunde …) – und das auch für künftige Än
 
 ## Tischlayout (Stich, Sitze)
 Stich als überlappendes Kreuz (z-index = Spielreihenfolge, links/rechts quer, harter Schatten). Vier Plätze an den vier Seiten: Gegner-Stapel am Rand (Handy: etwa zur Hälfte angeschnitten, Desktop: voll sichtbar), Beschriftung ohne Kasten (links/rechts gekippt), eigene Hand als Fächer. Status steht über dem Stich.
+Handy: Hand beginnt am unteren Bildschirmrand (Karten 5:8 gestreckt, unten angeschnitten); NEU-Etikett hängt an der Karte im gekippten Rahmen; Tischmitte ohne Rahmen/Schatten; kein gelber Rahmen am Stichgewinner.

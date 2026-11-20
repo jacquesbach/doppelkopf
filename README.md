@@ -22,7 +22,7 @@ Das Projekt ist unabhängig und steht in keiner Verbindung zum Deutschen Doppelk
 Dessen Turnierspielregeln dienen als Regelgrundlage.
 
 
-![Screenshot](https://imgur.com/a/Fm75d0u)]
+![Screenshot](https://i.imgur.com/Wn4qigq.png)]
 
 ## Inhalt
 

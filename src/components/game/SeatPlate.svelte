@@ -2,272 +2,214 @@
   import { seatBadges, seatName } from "../../lib/view.js";
   import CardBack from "../cards/CardBack.svelte";
 
-  // Namensschild eines Sitzes mit Marken, Ansage, Stichzahl und (bei Gegnern) Kartenrücken.
-  // `place`: Lage am Tisch (top | left | right | bottom); am Handy bestimmt sie die Größe des Kartenfächers.
+  // Ein Sitz am Tisch: Kartenstapel des Mitspielers am Rand und daneben – ohne Kasten – Name, Marken,
+  // Kartenzahl und Stiche. Links und rechts steht die Beschriftung gekippt (wie bei den bekannten Online-Tischen).
+  // `place`: Lage am Tisch (top | left | right | bottom). Größe und Überlappung der Stapel kommen von GameTable
+  // (CSS-Variablen --back-w, --step, --crop).
   let { view, seat, acting = false, announcement = null, showBacks = true, place = "bottom" } = $props();
 
   const badges = $derived(seatBadges(view, seat));
   const count = $derived(view.game.handCounts?.[seat] ?? 0);
   const tricks = $derived(view.game.tricksWon?.[seat] ?? 0);
   const bot = $derived(view.table.seats[seat]?.isBot);
+  const shownCount = $derived(Math.min(count, 12));
+  const vertical = $derived(place === "left" || place === "right");
 </script>
 
 <div
-  class="plate p-{place}"
+  class="seat s-{place}"
   class:acting
+  class:vertical
   aria-label={`Platz ${seat + 1}: ${seatName(view, seat)}, ${count} Karten, ${tricks} ${tricks === 1 ? "Stich" : "Stiche"}`}
 >
-  <div class="name">
-    <span class="n">{seatName(view, seat)}</span>
-    {#if bot}<span class="tag">BOT</span>{/if}
-  </div>
-  <div class="tags">
-    {#each badges as b (b)}<span class="tag">{b}</span>{/each}
-    {#if announcement}<span class="tag say">{announcement}</span>{/if}
-  </div>
-  <!-- Breit: ausgeschrieben („12 Karten“). Schmal (Mobil, seitliche Plätze): Symbol + Zahl, damit nichts aus dem Kasten ragt. -->
-  <div class="meta">
-    <span class="stat cards" title="{count} Karten">
-      <span class="full">{count} Karten</span>
-      <span class="short" aria-hidden="true">
-        <svg viewBox="0 0 14 14" width="14" height="14" focusable="false"><rect x="3" y="1.5" width="8" height="11" fill="#fff" stroke="#000" stroke-width="1.6" /></svg>
-        {count}
-      </span>
-      <span class="sr">{count} Karten</span>
-    </span>
-    <span class="stat" title="{tricks} {tricks === 1 ? 'Stich' : 'Stiche'}">
-      <span class="full">{tricks} {tricks === 1 ? "Stich" : "Stiche"}</span>
-      <span class="short" aria-hidden="true">
-        <svg viewBox="0 0 14 14" width="14" height="14" focusable="false">
-          <rect x="1.5" y="3.5" width="8" height="9" fill="#fff" stroke="#000" stroke-width="1.6" />
-          <rect x="4.5" y="1.5" width="8" height="9" fill="#FFD43B" stroke="#000" stroke-width="1.6" />
-        </svg>
-        {tricks}
-      </span>
-      <span class="sr">{tricks} {tricks === 1 ? "Stich" : "Stiche"}</span>
-    </span>
-  </div>
   {#if showBacks && count > 0}
-    <div class="backs" aria-hidden="true">
-      {#each Array(Math.min(count, 5)) as _, i (i)}<CardBack />{/each}
-    </div>
-    <!-- Handy: kleiner Fächer mit allen Karten des Mitspielers (zeigt die Kartenzahl auf einen Blick) -->
-    <div class="fan" aria-hidden="true">
-      {#each Array(Math.min(count, 12)) as _, i (i)}<CardBack />{/each}
+    <div class="deck" style="--n:{shownCount}" aria-hidden="true">
+      {#each Array(shownCount) as _, i (i)}
+        <span class="b" style="--i:{i}"><CardBack /></span>
+      {/each}
     </div>
   {/if}
+
+  <div class="info">
+    <span class="n">{seatName(view, seat)}</span>
+    {#if bot}<span class="tag">BOT</span>{/if}
+    {#each badges as b (b)}<span class="tag">{b}</span>{/each}
+    {#if announcement}<span class="tag say">{announcement}</span>{/if}
+    <span class="stat" title="{count} Karten">
+      <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false">
+        <rect x="3" y="1.5" width="8" height="11" fill="#fff" stroke="#000" stroke-width="1.6" />
+      </svg>
+      <span aria-hidden="true">{count}</span>
+    </span>
+    <span class="stat" title="{tricks} {tricks === 1 ? 'Stich' : 'Stiche'}">
+      <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false">
+        <rect x="1.5" y="3.5" width="8" height="9" fill="#fff" stroke="#000" stroke-width="1.6" />
+        <rect x="4.5" y="1.5" width="8" height="9" fill="#FFD43B" stroke="#000" stroke-width="1.6" />
+      </svg>
+      <span aria-hidden="true">{tricks}</span>
+    </span>
+  </div>
 </div>
 
 <style>
-  .plate {
-    container: plate / inline-size;
-    border: 3px solid #000;
-    background: var(--nb-bg);
-    box-shadow: var(--nb-shadow-sm);
-    padding: 8px 10px;
-    min-width: 0;
-    transition: background 0.15s, box-shadow 0.15s;
-  }
-  .plate.acting {
-    background: var(--nb-yellow);
-    box-shadow: var(--nb-shadow-md);
-  }
-  .name {
+  .seat {
+    --bw: var(--back-w, 40px);
+    --st: var(--step, 0.34);
     display: flex;
+    min-width: 0;
+  }
+
+  /* ---------- Beschriftung (ohne Kasten) ---------- */
+  .info {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    font-family: var(--font-heading);
+    justify-content: center;
+    gap: 3px 8px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
     font-weight: 700;
   }
   .n {
+    max-inline-size: 11em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    line-height: 1.25;
   }
-  .tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin: 4px 0;
-    min-height: 1.4em;
+  /* Wer am Zug ist, trägt den Namen auf gelbem Grund */
+  .acting .n {
+    padding-block: 0;
+    padding-inline: 6px;
+    background: var(--nb-yellow);
+    border: 2px solid #000;
   }
   .tag {
-    font-family: var(--font-mono);
-    font-weight: 700;
     font-size: 0.68rem;
+    line-height: 1.3;
     text-transform: uppercase;
-    padding: 0 5px;
+    padding-block: 0;
+    padding-inline: 5px;
     border: 2px solid #000;
     background: var(--nb-bg);
   }
   .tag.say {
     background: var(--nb-coral);
   }
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 2px 8px;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    min-width: 0;
-  }
   .stat {
-    white-space: nowrap;
-  }
-  .short {
-    display: none;
+    display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-weight: 700;
-    font-size: 0.85rem;
+    white-space: nowrap;
   }
-  .sr {
-    display: none;
-  }
-  .short svg {
+  .stat svg {
     display: block;
     flex-shrink: 0;
   }
-  .backs {
-    --back-w: 26px;
-    display: flex;
-    margin-top: 8px;
+
+  /* ---------- Kartenstapel: 12 Rücken, die sich überlappen ---------- */
+  .deck {
+    position: relative;
+    flex-shrink: 0;
   }
-  .backs > :global(* + *) {
-    margin-left: -14px;
+  .b {
+    position: absolute;
+    display: block;
   }
-  .fan {
-    display: none;
+
+  /* Oben und unten (Zuschauer): waagerecht */
+  .s-top,
+  .s-bottom {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
   }
+  .s-bottom {
+    flex-direction: column-reverse;
+  }
+  .s-top .deck,
+  .s-bottom .deck {
+    width: calc(var(--bw) * (1 + (var(--n) - 1) * var(--st)));
+    height: calc(var(--bw) * 1.4 * var(--keep, 1));
+    overflow: hidden;
+  }
+  .s-top .b,
+  .s-bottom .b {
+    left: calc(var(--i) * var(--bw) * var(--st));
+    top: calc(var(--bw) * 1.4 * (var(--keep, 1) - 1));
+  }
+
+  /* Links und rechts: Karten quer gelegt, untereinander; Beschriftung gekippt */
+  .s-left,
+  .s-right {
+    align-items: center;
+    gap: 4px;
+  }
+  .s-right {
+    flex-direction: row-reverse;
+  }
+  .s-left .deck,
+  .s-right .deck {
+    width: calc(var(--bw) * 1.4 * var(--keep, 1));
+    height: calc(var(--bw) * (1 + (var(--n) - 1) * var(--st)));
+    overflow: hidden;
+  }
+  .s-left .b,
+  .s-right .b {
+    width: calc(var(--bw) * 1.4);
+    height: var(--bw);
+    top: calc(var(--i) * var(--bw) * var(--st));
+  }
+  .s-left .b {
+    left: calc(var(--bw) * 1.4 * (var(--keep, 1) - 1));
+  }
+  .s-right .b {
+    left: 0;
+  }
+  .s-left .b :global(.back),
+  .s-right .b :global(.back) {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+
+  .vertical .info {
+    writing-mode: vertical-rl;
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 8px 3px;
+    max-height: calc(var(--bw) * (1 + 11 * var(--st)) + 20px);
+  }
+  .s-left .info {
+    transform: rotate(180deg);
+  }
+  .vertical .stat svg {
+    transform: rotate(90deg);
+  }
+
   @media (max-width: 640px) {
-    .backs {
-      display: none;
+    .info {
+      gap: 2px 6px;
+      font-size: 0.74rem;
     }
-    .plate {
-      padding: 4px 5px;
-      border-width: 2px;
-      box-shadow: 2px 2px 0 0 #000;
-    }
-    .plate.acting {
-      box-shadow: 3px 3px 0 0 #000;
-    }
-    .name {
-      font-size: 0.82rem;
-      line-height: 1.25;
-    }
-    .tags {
-      margin: 2px 0;
-      min-height: 0;
+    .n {
+      font-size: 0.86rem;
+      max-inline-size: 7.5em;
     }
     .tag {
       font-size: 0.6rem;
-      padding: 0 3px;
+      padding-inline: 3px;
       border-width: 1.5px;
     }
-    .tags:empty {
-      display: none;
+    .acting .n {
+      padding-inline: 4px;
+      border-width: 1.5px;
     }
-    /* Kartenzahl zeigt der Fächer; der Platz-Name trägt sie zusätzlich im aria-label. */
-    .stat.cards {
-      display: none;
-    }
-    /* Überall am Handy gleich: Symbole statt ausgeschriebener Wörter */
-    .full {
-      display: none;
-    }
-    .short {
-      display: inline-flex;
-    }
-    .sr {
-      display: block;
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0 0 0 0);
-      white-space: nowrap;
-    }
-    .stat {
-      position: relative;
-    }
-    /* Gegner: drei gleich große Kacheln – der Kartenfächer füllt die Kachelbreite aus (alle 12 Karten passen genau) */
-    .p-top,
-    .p-left,
-    .p-right {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .p-top .name,
-    .p-left .name,
-    .p-right .name {
-      flex-wrap: wrap;
-      gap: 0 6px;
-    }
-    .p-top .meta,
-    .p-left .meta,
-    .p-right .meta {
-      flex-direction: row;
-      justify-content: flex-start;
-    }
-    .fan {
-      --back-w: min(34px, calc(100cqw / 3.45));
-      display: flex;
-      justify-content: center;
-      margin-top: auto;
-      padding-top: 4px;
-    }
-    .fan > :global(* + *) {
-      margin-left: calc(var(--back-w) * -0.78);
-    }
-    /* Eigener Platz: schmale Leiste über der Hand */
-    .p-bottom {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 2px 8px;
-      width: 100%;
-    }
-    .p-bottom .tags {
-      margin: 0;
-    }
-    .p-bottom .meta {
-      gap: 8px;
-    }
-  }
-  /* Schmaler Kasten (seitliche Plätze auf dem Handy): Symbol + Zahl untereinander statt ausgeschriebenem Text */
-  @container plate (max-width: 150px) {
-    .name {
-      flex-wrap: wrap;
-      gap: 2px 6px;
-    }
-    .n {
-      max-width: 100%;
-    }
-    .full {
-      display: none;
-    }
-    .short {
-      display: inline-flex;
-    }
-    .sr {
-      display: block;
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0 0 0 0);
-      white-space: nowrap;
-    }
-    .stat {
-      position: relative;
-    }
-    .meta {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 3px;
+    .vertical .info {
+      gap: 6px 2px;
     }
   }
 </style>

@@ -53,22 +53,33 @@
     {#if playable}{selected ? "Nochmal antippen zum Ausspielen" : "Karte antippen zum Auswählen"}{/if}
   </p>
 {/if}
-<ul class="hand" aria-label="Deine Hand">
-  {#each shown as card (cardId(card))}
+<ul class="hand" style="--n:{shown.length}" aria-label="Deine Hand">
+  {#each shown as card, i (cardId(card))}
     {@const id = cardId(card)}
     {@const ok = pick ? (pick.allowed?.has(id) ?? true) : (playable?.has(id) ?? false)}
     {@const chosen = !pick && selected === id}
-    <li class:sel={chosen} class:fresh={!!pick?.received?.includes(id)} in:flyIn={{ key: id }} out:flyOut={{ key: id }}>
-      <PlayingCard {card} onclick={() => (pick ? pick.onToggle(id) : tap(id))} enabled={ok} selected={chosen} />
+    <li
+      class:sel={chosen}
+      class:fresh={!!pick?.received?.includes(id)}
+      style="--d:{i - (shown.length - 1) / 2}"
+      in:flyIn={{ key: id }}
+      out:flyOut={{ key: id }}
+    >
+      <div class="tilt">
+        <PlayingCard {card} onclick={() => (pick ? pick.onToggle(id) : tap(id))} enabled={ok} selected={chosen} />
+      </div>
     </li>
   {/each}
 </ul>
 
 <style>
+  /* Aufgefächert: Jede Karte ist um ihren Abstand zur Mitte (--d) gekippt und etwas abgesenkt – ein sanfter Bogen */
   .hand {
+    --step: 2deg;
+    --sag: 0.55px;
     list-style: none;
     margin: 0;
-    padding: 14px 8px 6px;
+    padding: 14px 8px calc(var(--sag) * var(--n, 12) * var(--n, 12) / 4 + 6px);
     display: flex;
     justify-content: center;
     min-height: calc(var(--card-w, 72px) * 1.4 + 20px);
@@ -78,6 +89,10 @@
   }
   li + li {
     margin-left: calc(var(--card-w, 72px) * -0.42);
+  }
+  .tilt {
+    transform: translateY(calc(var(--d, 0) * var(--d, 0) * var(--sag))) rotate(calc(var(--d, 0) * var(--step)));
+    transform-origin: 50% 100%;
   }
   /* Armut: soeben übernommene Karten tragen ein kleines „NEU“ */
   li.fresh {
@@ -116,7 +131,9 @@
   /* Handy: stärker überlappender Fächer; oben Platz für die herausragende, ausgewählte Karte. */
   @media (max-width: 640px) {
     .hand {
-      padding: 30px 4px 8px;
+      --step: 2.1deg;
+      --sag: 0.8px;
+      padding: 30px 4px calc(var(--sag) * var(--n, 12) * var(--n, 12) / 4 + 8px);
       min-height: calc(var(--card-w, 72px) * 1.4 + 40px);
     }
     li + li {

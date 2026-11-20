@@ -41,10 +41,11 @@
   const me = $derived(view.table.mySeat); // null = Zuschauer
   const REL = { bottom: 0, left: 1, top: 2, right: 3 };
   const seatAt = (place) => (((me ?? 0) + REL[place]) % 4);
+  const PLACES = ["bottom", "left", "top", "right"]; // Umkehrung von REL: Abstand zum eigenen Sitz → Lage am Tisch
+  const placeOf = (seat) => PLACES[(seat - (me ?? 0) + 4) % 4];
 
   const dialog = $derived(activeDialog(view));
   const shown = $derived(shownTrick(view));
-  const shownBySeat = $derived(Object.fromEntries(shown.plays.map((p) => [p.seat, p.card])));
   const holding = $derived(isHolding(view));
   const away = $derived(myAutoplay(view));
   const says = $derived(announcementsBySeat(view));
@@ -156,7 +157,6 @@
   </header>
 
   <main class="nx-container stage">
-    <p class="status" role="status" aria-live="polite">{statusText(view)}</p>
     {#if warnedOther}<TakeoverNote {store} />{/if}
     {#if away}
       <div class="away" role="alert">
@@ -177,6 +177,7 @@
       </div>
 
       <div class="mid">
+        <p class="status" role="status" aria-live="polite">{statusText(view)}</p>
         {#if dialog}
           <DecisionPanel
             {dialog}
@@ -210,18 +211,13 @@
               {/each}
             </ul>
           {/if}
+          <!-- Stich: Karten liegen im Kreuz und überlappen sich in der Reihenfolge, in der sie gespielt wurden -->
           <div class="trick" aria-label="Aktueller Stich">
-            {#each ["top", "left", "right", "bottom"] as place (place)}
-              {@const seat = seatAt(place)}
-              {@const card = shownBySeat[seat]}
-              <div class="slot {place}" class:winner={shown.complete && shown.winnerSeat === seat}>
-                {#if card}
-                  {#key cardId(card)}
-                    <div class="fly"><PlayingCard {card} /></div>
-                  {/key}
-                {:else}
-                  <div class="empty" aria-hidden="true"></div>
-                {/if}
+            {#each shown.plays as p, i (p.seat)}
+              <div class="slot {placeOf(p.seat)}" class:winner={shown.complete && shown.winnerSeat === p.seat} style="z-index:{i + 1}">
+                {#key cardId(p.card)}
+                  <div class="fly"><div class="rot"><PlayingCard card={p.card} /></div></div>
+                {/key}
               </div>
             {/each}
           </div>
@@ -340,42 +336,49 @@
   }
   .stage {
     flex: 1;
+    max-width: 1400px;
     padding-block: 16px 32px;
   }
   .status {
-    margin: 0 0 12px;
+    margin: 0;
     text-align: center;
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 0.9rem;
     min-height: 1.5em;
   }
+  /* Vier Plätze an den vier Seiten: Gegner mit Kartenstapel am Rand, Stich in der Mitte, eigene Hand unten */
   .table {
+    --back-w: clamp(44px, 4.4vw, 62px);
+    --step: 0.34;
+    --trick-w: clamp(54px, 6.6vw, 88px);
+    --side: calc(var(--back-w) * 1.4 + 76px);
     display: grid;
-    grid-template-columns: minmax(96px, 1fr) minmax(0, 2.4fr) minmax(96px, 1fr);
+    grid-template-columns: var(--side) minmax(0, 1fr) var(--side);
     grid-template-areas:
       "top top top"
       "left mid right"
       "me me me";
-    gap: 14px;
+    gap: 14px 10px;
     align-items: start;
   }
   .top {
     grid-area: top;
     justify-self: center;
-    width: min(260px, 100%);
   }
   .left {
     grid-area: left;
     align-self: center;
+    justify-self: start;
   }
   .right {
     grid-area: right;
     align-self: center;
+    justify-self: end;
   }
   .mid {
     grid-area: mid;
-    min-height: calc(var(--card-w) * 2.9);
+    min-height: calc(var(--trick-w) * 3.2 + 40px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -387,9 +390,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-  }
-  .me :global(.plate) {
-    width: min(280px, 100%);
   }
   .poverty-stack {
     display: flex;
@@ -413,31 +413,68 @@
     gap: 8px;
     justify-content: center;
   }
-  /* Stichfläche: Kreuz aus vier Plätzen */
+  /* Stichfläche: Kreuz aus vier Karten, die sich überlappen (z-index = Spielreihenfolge); links/rechts quer gelegt */
   .trick {
-    --card-w: clamp(40px, 9.5vw, 72px);
-    display: grid;
-    grid-template-columns: repeat(3, var(--card-w));
-    grid-template-rows: repeat(3, calc(var(--card-w) * 1.4 * 0.72));
-    grid-template-areas:
-      ". top ."
-      "left . right"
-      ". bottom .";
-    gap: 4px 10px;
-    justify-content: center;
-    align-items: center;
-    padding: 6px;
+    --card-w: var(--trick-w);
+    position: relative;
+    flex-shrink: 0;
+    width: calc(var(--trick-w) * 3.05 + 8px);
+    height: calc(var(--trick-w) * 3 + 8px);
   }
   .slot {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    position: absolute;
   }
-  /* Karte fliegt aus der Richtung ihres Spielers auf den Tisch */
+  .slot.top,
+  .slot.bottom {
+    left: 50%;
+    width: var(--trick-w);
+    height: calc(var(--trick-w) * 1.4);
+    margin-left: calc(var(--trick-w) / -2);
+  }
+  .slot.top {
+    top: 0;
+  }
+  .slot.bottom {
+    bottom: 0;
+  }
+  .slot.left,
+  .slot.right {
+    top: 50%;
+    width: calc(var(--trick-w) * 1.4);
+    height: var(--trick-w);
+    margin-top: calc(var(--trick-w) / -2);
+  }
+  .slot.left {
+    left: 0;
+  }
+  .slot.right {
+    right: 0;
+  }
+  /* Karte fliegt aus der Richtung ihres Spielers auf den Tisch; Neubrutalism-Schatten, Kartenbild bleibt unverändert */
   .fly {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(4px 4px 0 #000);
     animation-duration: 0.5s;
     animation-timing-function: cubic-bezier(0.2, 0.8, 0.25, 1);
     animation-fill-mode: both;
+  }
+  .fly :global(.card) {
+    filter: none;
+  }
+  .rot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--trick-w);
+    transform: translate(-50%, -50%);
+  }
+  .slot.left .rot {
+    transform: translate(-50%, -50%) rotate(-90deg);
+  }
+  .slot.right .rot {
+    transform: translate(-50%, -50%) rotate(90deg);
   }
   .slot.bottom .fly { animation-name: from-bottom; }
   .slot.top .fly { animation-name: from-top; }
@@ -447,7 +484,7 @@
   @keyframes from-top { from { transform: translateY(-150px) scale(0.8); opacity: 0.2; } to { transform: none; opacity: 1; } }
   @keyframes from-left { from { transform: translateX(-190px) scale(0.85); opacity: 0.2; } to { transform: none; opacity: 1; } }
   @keyframes from-right { from { transform: translateX(190px) scale(0.85); opacity: 0.2; } to { transform: none; opacity: 1; } }
-  .slot.winner .fly {
+  .slot.winner .rot {
     outline: 4px solid var(--nb-yellow);
     outline-offset: 3px;
     border-radius: 8%;
@@ -474,23 +511,14 @@
     width: fit-content;
     max-width: 100%;
   }
-  .slot.top { grid-area: top; }
-  .slot.left { grid-area: left; }
-  .slot.right { grid-area: right; }
-  .slot.bottom { grid-area: bottom; }
-  .empty {
-    width: var(--card-w);
-    aspect-ratio: 5 / 7;
-    border: 2px dashed rgba(0, 0, 0, 0.35);
-  }
-  /* ---------- Handy: Aufbau wie bei den bekannten Online-Tischen – schlanker Kopf, großer Tisch, große Hand unten ---------- */
+  /* ---------- Handy: Gegner-Stapel beginnen direkt am Bildschirmrand, Tisch über die ganze Breite ---------- */
   @media (max-width: 640px) {
     .hide-sm {
       display: none;
     }
     .game {
-      /* Hand: 12 Karten passen mit gut der Hälfte Überlappung genau in die Breite */
-      --card-w: min(78px, calc((100vw - 12px) / 6.1));
+      /* Hand: 12 Karten passen mit gut der Hälfte Überlappung genau in die Breite (Fächer braucht seitlich etwas Luft) */
+      --card-w: min(78px, calc((100vw - 44px) / 6.1));
       min-height: 100vh;
       min-height: 100dvh;
     }
@@ -526,30 +554,26 @@
     .stage {
       display: flex;
       flex-direction: column;
-      padding: 6px 6px 8px;
+      padding: 0 0 8px;
+      overflow-x: clip;
+    }
+    .away {
+      margin: 6px 6px 6px;
     }
     .status {
-      margin: 0 0 6px;
       font-size: 0.82rem;
       min-height: 1.3em;
     }
-    /* Drei gleich große Gegner-Kacheln oben (links · gegenüber · rechts), darunter der Tisch über die volle Breite */
+    /* Stapel sind nur etwa zur Hälfte zu sehen: Sie ragen vom Rand in den Tisch hinein */
     .table {
+      --back-w: clamp(28px, 9.4vw, 40px);
+      --step: 0.44;
+      --keep: 0.62;
+      --trick-w: min(78px, calc((100vw - 150px) / 3.05));
+      --side: calc(var(--back-w) * 1.4 * var(--keep) + 40px);
       flex: 1;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      grid-template-areas:
-        "left top right"
-        "mid mid mid"
-        "me me me";
       grid-template-rows: auto 1fr auto;
-      gap: 6px;
-    }
-    .top,
-    .left,
-    .right {
-      width: 100%;
-      justify-self: stretch;
-      align-self: stretch;
+      gap: 6px 0;
     }
     .mid {
       min-height: 0;
@@ -559,17 +583,12 @@
       box-shadow: var(--nb-shadow-sm);
       padding: 6px 4px;
     }
-    .trick {
-      /* Stichkarten: so groß, wie die Mitte es zulässt */
-      --card-w: min(76px, calc((100vw - 44px) / 3));
-      gap: 2px 6px;
-      padding: 2px;
+    .fly {
+      filter: drop-shadow(3px 3px 0 #000);
     }
     .me {
       align-self: end;
-    }
-    .me :global(.plate) {
-      width: 100%;
+      padding-inline: 6px;
     }
     .note {
       font-size: 0.74rem;

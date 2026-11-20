@@ -309,3 +309,6 @@ Ergebnis-Dialog, Pflichtsolo, Bockrunde …) – und das auch für künftige Än
 - **Tests:** `backend/tests/service/test_lab.py` (Prüfung, Kartenbau, Vorlagen, Armut aus beiden Sichten, Neugabe, HTTP-Schicht),
   `tests/lab.test.js` (Editor-Logik).
 - **Neue Spalte:** `room.lab_spec_json` (wird beim Start automatisch ergänzt, `_ensure_columns`).
+
+## Tischlayout (Stich, Sitze)
+Stich als überlappendes Kreuz (z-index = Spielreihenfolge, links/rechts quer, harter Schatten). Vier Plätze an den vier Seiten: Gegner-Stapel am Rand (Handy: etwa zur Hälfte angeschnitten, Desktop: voll sichtbar), Beschriftung ohne Kasten (links/rechts gekippt), eigene Hand als Fächer. Status steht über dem Stich.

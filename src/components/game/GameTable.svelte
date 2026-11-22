@@ -183,7 +183,7 @@
         <SeatPlate {view} place="right" seat={seatAt("right")} acting={acting === seatAt("right")} announcement={says[seatAt("right")]} />
       </div>
 
-      <div class="mid">
+      <div class="mid" class:panel={!!(dialog || pickAction)}>
         <p class="status" role="status" aria-live="polite">{statusText(view)}</p>
         {#if declared.length}
           <ul class="declared">
@@ -537,12 +537,13 @@
     max-width: 100%;
   }
   /* Desktop: Im Spielmodus passt der Tisch genau ins Fenster (kein Scrollen). ``.fit`` misst die verfügbare Höhe (Container-Einheit cqh),
-     daraus ergeben sich Karten-, Stapel- und Stichgröße; die festen Anteile (Namen, Ansagenleiste, Hinweise, Abstände) sind abgezogen. */
+     daraus ergeben sich Karten-, Stapel- und Stichgröße; die festen Anteile (Namen, Ansagenleiste, Hinweise, Abstände) sind abgezogen.
+     Bei sehr niedrigen Fenstern (unter 560 px) würden die Karten zu klein: dort bleibt es beim bisherigen Layout mit Scrollen. */
   .fit,
   .after {
     display: contents;
   }
-  @media (min-width: 641px) {
+  @media (min-width: 641px) and (min-height: 560px) {
     .game {
       height: 100vh;
       height: 100dvh;
@@ -577,11 +578,21 @@
       grid-template-rows: auto minmax(0, 1fr) auto;
       gap: 8px 10px;
     }
+    /* Die Mitte füllt genau die Zeile zwischen den Plätzen oben und unten. Ist ihr Inhalt (Fenster, Stich) höher, scrollt sie
+       in sich, statt die Hand zu überdecken; zentriert wird über automatische Ränder, damit nichts oben abgeschnitten wird. */
     .mid {
+      align-self: stretch;
+      justify-content: flex-start;
       min-height: 0;
       padding: 2px 8px 10px;
       overflow-y: auto;
       scrollbar-width: thin;
+    }
+    .mid > :global(:first-child) {
+      margin-top: auto;
+    }
+    .mid > :global(:last-child) {
+      margin-bottom: auto;
     }
     .after {
       display: flex;
@@ -594,6 +605,12 @@
     .after :global(.nx-btn-lg) {
       padding: 8px 20px;
       font-size: 0.95rem;
+    }
+  }
+  /* Sehr wenig Höhe und ein Fenster (Vorbehalt, Armut) in der Mitte: die Statuszeile wiederholt nur dessen Titel und entfällt */
+  @container (max-height: 600px) {
+    .mid.panel .status {
+      display: none;
     }
   }
   /* Schmale Desktop-Fenster: Nebenknöpfe hinter „MENÜ“ (wie am Handy), damit die Kopfzeile nicht mehrzeilig wird */

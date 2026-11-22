@@ -54,10 +54,12 @@
       {/if}
     {/each}
   </ul>
-  <p class="count">{cards.length} von {count} Karten gewählt</p>
-  <button type="button" class="nx-btn nx-bg-coral" disabled={busy || !ready} onclick={onconfirm}>
-    {passing ? `${count} KARTEN ABGEBEN` : `${count} KARTEN ZURÜCKGEBEN`}
-  </button>
+  <div class="confirm">
+    <p class="count">{cards.length} von {count} Karten gewählt</p>
+    <button type="button" class="nx-btn nx-bg-coral" disabled={busy || !ready} onclick={onconfirm}>
+      {passing ? `${count} KARTEN ABGEBEN` : `${count} KARTEN ZURÜCKGEBEN`}
+    </button>
+  </div>
 </section>
 
 <style>
@@ -154,6 +156,61 @@
     .hint {
       font-size: 0.8rem;
       margin-bottom: 8px;
+    }
+  }
+  /* Nur wenn die Tischhöhe (Desktop, siehe GameTable ``.fit``) das normale Fenster nicht zulässt: breiter und flacher (Text und
+     Käufer-Karten links, Auswahl und Knopf rechts), damit es in die Tischmitte passt und die Hand vollständig sichtbar bleibt */
+  @container (max-height: 850px) {
+    .panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 24px;
+      align-items: start;
+      max-width: 660px;
+      padding: 12px 18px;
+      text-align: left;
+    }
+    .panel :global(.nx-h2) {
+      grid-column: 1;
+      grid-row: 1;
+      margin: 0 0 4px;
+      font-size: 1.05rem;
+    }
+    .hint {
+      grid-column: 1;
+      grid-row: 2;
+      margin: 0 0 8px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+    .recv {
+      grid-column: 1;
+      grid-row: 3;
+      margin: 0;
+      justify-content: flex-start;
+    }
+    .slots {
+      --card-w: 54px;
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      justify-self: center;
+      margin: 8px 0 0;
+    }
+    .confirm {
+      grid-column: 2;
+      grid-row: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .count {
+      margin: 0;
+      font-size: 0.8rem;
+    }
+    .confirm :global(.nx-btn) {
+      padding: 8px 16px;
+      font-size: 0.85rem;
     }
   }
 </style>

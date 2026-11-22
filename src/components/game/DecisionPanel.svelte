@@ -125,11 +125,12 @@
     gap: 8px;
     padding: 10px 8px;
   }
-  /* Desktop mit wenig Höhe: Panel kompakter, damit es in die Tischmitte passt (die Hand bleibt sichtbar) */
-  @media (min-width: 641px) and (max-height: 800px) {
+  /* Nur wenn die Tischhöhe (Desktop, siehe GameTable ``.fit``) das normale Fenster nicht zulässt: breiter, mit drei Spalten
+     bei den Solos und knapperen Abständen, damit es in die Tischmitte passt und die Hand sichtbar bleibt */
+  @container (max-height: 850px) {
     .panel {
+      max-width: 620px;
       padding: 12px 16px;
-      max-width: 560px;
     }
     .panel :global(.nx-h2) {
       margin-bottom: 6px;

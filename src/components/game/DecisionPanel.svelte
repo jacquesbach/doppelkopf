@@ -125,4 +125,28 @@
     gap: 8px;
     padding: 10px 8px;
   }
+  /* Desktop mit wenig Höhe: Panel kompakter, damit es in die Tischmitte passt (die Hand bleibt sichtbar) */
+  @media (min-width: 641px) and (max-height: 800px) {
+    .panel {
+      padding: 12px 16px;
+      max-width: 560px;
+    }
+    .panel :global(.nx-h2) {
+      margin-bottom: 6px;
+      font-size: 1.1rem;
+    }
+    .hint {
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+    .grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .panel :global(.nx-btn) {
+      padding-block: 6px;
+      font-size: 0.88rem;
+    }
+  }
 </style>

@@ -171,6 +171,7 @@
       </div>
     {/if}
 
+    <div class="fit">
     <div class="table">
       <div class="top">
         <SeatPlate {view} place="top" seat={seatAt("top")} acting={acting === seatAt("top")} announcement={says[seatAt("top")]} />
@@ -227,19 +228,21 @@
               </div>
             {/each}
           </div>
-          {#if shown.complete && (game.phase === "playing" || finished)}
-            <p class="note">
-              {seatName(view, shown.winnerSeat)} gewinnt {finished ? "den letzten Stich" : "den Stich"} ({game.lastTrick.points} Augen).
-            </p>
-          {/if}
-          {#if finished && resultDelayed}
-            <button type="button" class="nx-btn" onclick={() => store.showResultNow()}>ERGEBNIS JETZT ANZEIGEN</button>
-          {/if}
-          {#if holding}
-            <button type="button" class="nx-btn nx-btn-lg" disabled={store.busy} onclick={() => store.continueTrick()}>
-              NÄCHSTER STICH &rarr;
-            </button>
-          {/if}
+          <div class="after">
+            {#if shown.complete && (game.phase === "playing" || finished)}
+              <p class="note">
+                {seatName(view, shown.winnerSeat)} gewinnt {finished ? "den letzten Stich" : "den Stich"} ({game.lastTrick.points} Augen).
+              </p>
+            {/if}
+            {#if finished && resultDelayed}
+              <button type="button" class="nx-btn" onclick={() => store.showResultNow()}>ERGEBNIS JETZT ANZEIGEN</button>
+            {/if}
+            {#if holding}
+              <button type="button" class="nx-btn nx-btn-lg" disabled={store.busy} onclick={() => store.continueTrick()}>
+                NÄCHSTER STICH &rarr;
+              </button>
+            {/if}
+          </div>
         {/if}
       </div>
 
@@ -268,6 +271,7 @@
           </div>
         {/if}
       </div>
+    </div>
     </div>
   </main>
 </div>
@@ -377,6 +381,7 @@
     --step: 0.34;
     --trick-w: clamp(54px, 6.6vw, 88px);
     --side: calc(var(--back-w) * 1.4 + 76px);
+    --fixed-h: 270px;     /* Höhe aller Teile, die nicht mit der Kartengröße wachsen (Desktop, siehe .fit) */
     display: grid;
     grid-template-columns: var(--side) minmax(0, 1fr) var(--side);
     grid-template-areas:
@@ -530,6 +535,82 @@
     font-weight: 600;
     width: fit-content;
     max-width: 100%;
+  }
+  /* Desktop: Im Spielmodus passt der Tisch genau ins Fenster (kein Scrollen). ``.fit`` misst die verfügbare Höhe (Container-Einheit cqh),
+     daraus ergeben sich Karten-, Stapel- und Stichgröße; die festen Anteile (Namen, Ansagenleiste, Hinweise, Abstände) sind abgezogen. */
+  .fit,
+  .after {
+    display: contents;
+  }
+  @media (min-width: 641px) {
+    .game {
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .bar {
+      min-height: 0;
+      max-width: 1400px;
+      padding-block: 6px;
+      gap: 6px 12px;
+    }
+    .stage {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding-block: 6px 10px;
+    }
+    .fit {
+      display: block;
+      flex: 1;
+      min-height: 0;
+      container-type: size;
+      overflow: hidden auto;
+    }
+    .table {
+      --avail: max(0px, calc(100cqh - var(--fixed-h)));
+      --card-w: max(40px, min(clamp(46px, 11vw, 96px), calc(var(--avail) * 0.1795)));
+      --back-w: max(28px, min(clamp(44px, 4.4vw, 70px), calc(var(--avail) * 0.1325)));
+      --trick-w: max(44px, min(clamp(54px, 6.6vw, 100px), calc(var(--avail) * 0.188)));
+      height: 100%;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 8px 10px;
+    }
+    .mid {
+      min-height: 0;
+      padding: 2px 8px 10px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+    .after {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 4px 14px;
+      min-height: 46px;
+    }
+    .after :global(.nx-btn-lg) {
+      padding: 8px 20px;
+      font-size: 0.95rem;
+    }
+  }
+  /* Schmale Desktop-Fenster: Nebenknöpfe hinter „MENÜ“ (wie am Handy), damit die Kopfzeile nicht mehrzeilig wird */
+  @media (min-width: 641px) and (max-width: 899px) {
+    .tools {
+      display: contents;
+    }
+    .sec {
+      display: none;
+      order: 5;
+    }
+    .tools.open .sec {
+      display: inline-block;
+    }
+    .menu-toggle {
+      display: inline-block;
+    }
   }
   /* ---------- Handy: Gegner-Stapel beginnen direkt am Bildschirmrand, Tisch über die ganze Breite ---------- */
   @media (max-width: 640px) {

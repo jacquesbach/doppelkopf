@@ -1,4 +1,4 @@
-# Doppelkopf Multiplayer
+# Doppelkopf
 
 [![Build & Test](https://github.com/jacquesbach/doppelkopf/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/jacquesbach/doppelkopf/actions/workflows/build-and-test.yml)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
@@ -20,6 +20,10 @@ sodass du sie auch selbst betreiben kannst.
 
 Das Projekt ist unabhängig und steht in keiner Verbindung zum Deutschen Doppelkopf-Verband e. V. (DDV).
 Dessen Turnierspielregeln dienen als Regelgrundlage.
+
+
+![Screenshot](https://i.imgur.com/Wn4qigq.png)
+
 
 ## Inhalt
 
@@ -45,7 +49,7 @@ Dessen Turnierspielregeln dienen als Regelgrundlage.
 - Zuschaltbare Regeln: ohne Neunen (40 Karten), Dulle, Schweinchen, Armut, Bockrunden, Ansagepflicht und weitere (siehe [Regelmatrix](docs/DDV_REGELMATRIX.md)).
 - Bots mit Gedächtnis, die ungesehene Karten durchrechnen. Sie übernehmen auch Plätze, wenn jemand die Verbindung verliert oder nicht mehr reagiert (einstellbar).
 - Tisch-Chat mit Klassiker-Sprüchen, Spielprotokoll, „Letzter Stich“ und Stiche ansehen nach dem Spiel.
-- Platz zurückholen auf einem anderen Gerät mit einem Platz-Code. Heller und dunkler Tisch. Bedienung am Handy mit zweifachem Tippen.
+- Platz zurückholen auf einem anderen Gerät mit einem Platz-Code. Heller und dunkler Tisch. Am Desktop passt der Spieltisch genau ins Browserfenster (kein Scrollen), am Handy ebenso; Bedienung am Handy mit zweifachem Tippen.
 - Optional und freiwillig: „Wer ist online“ mit Freundescode, ohne Konto (standardmäßig aus).
 
 **Betreiber** (`/admin`, nur mit Passwort)

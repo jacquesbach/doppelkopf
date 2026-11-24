@@ -94,10 +94,46 @@ Nach fünf falschen Passwörtern innerhalb von 10 Minuten sperrt der Server die 
 | **STATISTIK** | Tische gesamt, neu in 24 Std./7/30 Tagen, nur gegen Bots oder mit Menschen, nach Zahl der Menschen, Dauer und Spiele je Tisch (Durchschnitt, Median, Maximum), neue Tische je Tag. |
 | **AUSWERTUNG** | Spiele pro Tag (30 Tage), nach Uhrzeit und Wochentag, Spitzenzeit, Spieldauer (Durchschnitt, Median, 90 %), Abbruchquote (Tische, die nie ein Spiel beendeten; abgebrochene Runden). Zeiten in deutscher Zeit. |
 | **SYSTEM** | Version und Zeitpunkt des letzten Deploys, Laufzeit, Python-Version, Datenbankgröße und Zeilenzahlen, freier Speicherplatz, offene Verbindungen, Bot-Schleifen, Fehler der letzten 24 Stunden. Darunter das **Fehler-Log** (gleiche Fehler zusammengezählt, Stacktrace, einzeln oder alle löschbar). |
+| **BOTS** | Wie die Bots denken: Durchrechnen je Spielart (Solo, Armut, Hochzeit) ein- und ausschalten, öffentlich Angesagtes nutzen, Rechenaufwand, Schwellen für Ansagen, Spieltempo und Einstellungen der Grundstrategie. Jede Einstellung ist im Reiter erklärt. Änderungen gelten sofort an allen Tischen und bleiben nach einem Neustart erhalten; „Auf Standard zurücksetzen“ stellt die gemessenen Werte wieder her. Siehe [Bot-Einstellungen](#bot-einstellungen). |
 | **DESIGN** | Farben der Website, Hinweisbanner (z. B. für Wartung), Vorgabe hell/dunkel für den Tisch, „Wer ist online“ ein- oder ausschalten. „Zurücksetzen“ stellt die Standardwerte wieder her. |
 | **SPRÜCHE** | Klassiker-Sprüche für den Tisch-Chat hinzufügen, ändern, löschen und umsortieren. Die acht mitgelieferten Sprüche werden nur beim allerersten Start eingetragen. |
 | **VORSCHLÄGE** | Eingereichte Verbesserungsvorschläge ansehen (mit Daumen), ausblenden, bearbeiten, löschen. Ausgeblendete sieht nur der Betreiber. |
 | **TEST-TISCH** | Beliebige Spielsituationen für Tests aufbauen (siehe [DEVELOPMENT.md](DEVELOPMENT.md#test-tisch-szenario-labor)). Test-Tische sind nie öffentlich und zählen nicht in die Statistik. |
+
+
+### Bot-Einstellungen
+
+Der Reiter **BOTS** ändert `bots.TUNE` im laufenden Server (ein Prozess) und das Tempo der Bots. Der Stand liegt in der Tabelle `setting`
+(Schlüssel `bot_tuning`, nicht Teil der öffentlichen Seiteneinstellungen) und wird beim Start wieder angewendet. Wurde nie gespeichert, gelten die
+Standardwerte aus dem Code. Zum Vergleichen und Messen siehe [DEVELOPMENT.md](DEVELOPMENT.md#bots-messen).
+
+| Einstellung | Standard | Bedeutung |
+|---|---|---|
+| **Durchrechnen der Kartenwahl** | | Beim Durchrechnen verteilt der Bot die Karten, die er nicht sieht, zufällig (aber regelkonform) auf die Mitspieler und spielt jede erlaubte Karte in vielen solchen Verteilungen zu Ende. Er wählt die Karte mit den meisten erwarteten Augen für seine Partei. Der Bot kennt nie fremde Hände, nur öffentlich Bekanntes. |
+| Durchrechnen insgesamt | an | Hauptschalter. Aus: Die Bots spielen alle Karten nach festen Regeln (Grundstrategie), in jeder Spielart. Das spart Rechenzeit, spielt aber deutlich schwächer. Im Normalspiel schlagen die Bots mit Durchrechnen die frühere Strategie klar (siehe Dokumentation, Abschnitt Bots). |
+| Durchrechnen im Solo | an | Bei allen sieben Soli (Farben-, Damen-, Buben-, Fleischlos-Solo, Pflicht- und Lustsolo). Der Solist spielt öffentlich bekannt gegen drei. Messung: +0,48 ± 0,08 Punkte je Spiel gegenüber der festen Regel. |
+| Durchrechnen bei Armut | an | Nach dem Kartentausch. Der Arme und sein Käufer sind Re. Die getauschten Karten kennen nur die beiden, die Bots rechnen ohne diese Kenntnis der anderen. Messung: +1,05 ± 0,15 Punkte je Spiel. |
+| Durchrechnen bei Hochzeit | an | Der Spieler mit beiden Kreuz-Damen ist Re. Sein Partner ist, wer im ersten, zweiten oder dritten Stich zuerst einen fremden Stich gewinnt; sonst wird es ein Solo. Das bilden die Verteilungen nach. Nach der Klärung stehen die Parteien fest. Messung: +0,40 ± 0,12 Punkte je Spiel. |
+| Öffentlich Angesagtes nutzen | an | Nach einer Schweinchen-Ansage liegen alle noch nicht gespielten Karo-Asse beim Ansager, bei einer Hochzeit alle noch nicht gespielten Kreuz-Damen. Das weiß jeder am Tisch; der Bot verteilt diese Karten deshalb nicht mehr zufällig. Messung: Hochzeit +0,10 Punkte gegenüber ohne (im Rauschen), Schweinchen neutral. Aus nur für Vergleiche. |
+| Rechenaufwand | 160 Stichproben | Wie viele Stichproben ein Bot je Zug rechnet (verteilt auf die erlaubten Karten, jede Karte mindestens 6, höchstens 40). Mehr ist genauer, braucht aber proportional mehr Rechenzeit. Standard 160: im Mittel rund 50 ms je Zug. |
+| **Ansagen (Re, Kontra, Absagen)** | | Im Normalspiel entscheidet der Bot per Stichprobe, ob er Re/Kontra oder eine Absage ansagt. In allen anderen Spielarten gilt eine feste Regel (nur Re/Kontra, früh, nach Handstärke). |
+| Art der Ansage-Entscheidung | Stichprobe | „Stichprobe“: Im Normalspiel spielt der Bot seine Hand mehrfach durch und sagt an, wenn die Erfolgschance hoch genug ist. „Feste Regel“: Ansage nur von Re/Kontra, früh und nach Handstärke; keine Absagen. |
+| Schwelle für Re/Kontra | 75 % | Ab dieser Gewinnchance sagt ein Bot Re bzw. Kontra an. Höher = vorsichtiger. |
+| Schwelle für Absagen | 85 % | Ab dieser Chance, die Absage (keine 90 / 60 / 30 / schwarz) zu erreichen, sagt ein Bot sie an, jeweils die höchste, die reicht. Höher = vorsichtiger. |
+| Stichproben je Ansage | 30 Stichproben | Wie oft der Bot die Hand für die Ansage-Entscheidung durchspielt. Mehr = verlässlicher, aber langsamer. |
+| **Tempo** | | Wie schnell Bots am Tisch spielen. Die Rechenzeit ist davon unabhängig. |
+| Spieltempo der Bots | Normal | Faktor auf alle Wartezeiten der Bots (Bedenkzeit, Vorbehaltsabfrage, Pause nach dem Stich). Gilt für alle Tische, auch laufende. |
+| **Grundstrategie (Rückfall)** | | Diese Regeln gelten immer dann, wenn nicht durchgerechnet wird: bei ausgeschaltetem Durchrechnen, bei Karten mit nur einer erlaubten Wahl und wenn keine passende Verteilung gefunden wird. Sie sind im Selbstspiel abgestimmt; Änderungen nur für Versuche. |
+| Sichere Fehlkarten zuerst ausspielen | an | Eine Fehlfarben-Karte mit Augen, die kein Gegner mehr überbieten kann (die höchste ihrer Farbe), wird zuerst ausgespielt, um Augen zu sichern. |
+| Risiko beim Ausspielen meiden | an | Beim Ausspielen werden Farben vermieden, in denen ein Gegner nachweislich keine Karte mehr hat (er würde stechen); Farben, in denen der Partner leer ist, werden bevorzugt. |
+| Trumpfstark ausspielen | aus | Mit mindestens 5 Trümpfen spielt der Bot einen Trumpf aus, den kein Gegner mehr überbieten kann (bei 7 oder mehr Trümpfen den stärksten, sonst den schwächsten davon). |
+| Partner nur bei sicherem Stich schmieren | an | Gewinnt der Partner den Stich, gibt der Bot nur dann Augen dazu, wenn der Stich nicht mehr überstochen werden kann. |
+| Sicher gewinnen bevorzugen | an | Zum Gewinnen eines Stichs wird die schwächste Karte genommen, die auch gegen die Nachspieler hält. |
+| Kurze Farben zuerst abwerfen | an | Beim Abwerfen werden kurze Fehlfarben zuerst gewählt, damit man früh farbfrei wird und stechen kann. |
+| **Experimentell** | | Verfahren ohne nachgewiesenen Gewinn. Nur für Versuche gedacht. |
+| Parteien aus dem Spielverhalten schätzen | aus | Der Bot schließt aus dem Verhalten der Mitspieler (Schmieren, Stechen) auf deren Partei und gewichtet die Verteilungen entsprechend. Im Selbstspiel kein messbarer Gewinn bei doppelter Rechenzeit. |
+| Stärke dieser Schätzung | 50 % | Gewicht, mit dem Verteilungen zählen, die zum Verhalten nicht passen (niedrig = starke Wirkung, 100 % = keine Wirkung). |
+| Sieg statt Augen bewerten | aus | Die Karte wird nach der Siegchance der Partei (danach Augen) gewählt statt nach den erwarteten Augen. Nicht gemessen; Standard: aus. |
 
 ## Moderation
 

@@ -1,10 +1,14 @@
 """Spielstaerke der Bots messen: neue Bots (Sitze 0/2) gegen die alte Version (Sitze 1/3), dieselben Kartenverteilungen
 in beiden Sitzzuordnungen. Aufruf (im Ordner ``backend``):
 
-    python3 -m tools.bot_tournament [Verteilungen] [Seed] [ddv|alle|ohne9] [einstellung=wert ...]
+    python3 -m tools.bot_tournament [Verteilungen] [Seed] [ddv|alle|ohne9] [spielart=solo|wedding|poverty|schweinchen] [einstellung=wert ...]
 
 Einstellungen gelten fuer beide Seiten; mit Praefix nur fuer eine (a.infer=1 b.infer=0: zwei Varianten der neuen Bots
 gegeneinander, sonst spielt b die alte Version).
+
+``spielart=...``: jede Verteilung wird so zurechtgerueckt, dass diese Spielart entsteht (``tools/scenarios.py``); Armut und Schweinchen schalten
+die Hausregel dazu ein. Beispiele (Durchrechnen im Solo an gegen aus, sonst gleich):
+    python3 -m tools.bot_tournament 200 1 ddv pimc=1 announce=pimc spielart=solo a.pimc_solo=1 b.pimc_solo=0
 
 Gibt die Punktesumme beider Seiten aus (Nullsumme) und die Zahl der gewonnenen Spiele. Die alte Version liegt als
 ``tests/service/legacy_bots.py`` (Grundstrategie ohne Gedaechtnis).
@@ -18,6 +22,7 @@ from app.rules import DeckVariant, Phase, RuleOptions, apply_action, bot_view, m
 from app.rules.dealing import shuffled_deck
 from app.table import bots as new
 import tests.service.legacy_bots as old
+from tools import scenarios
 
 ALL = RuleOptions(mandatory_announcements=True, solo_leads=True, karlchen_caught=True, schweinchen=True,
                   bock_heart_trick=True, bock_zero_game=True, bock_120=True, second_dulle_wins=True)
@@ -36,14 +41,17 @@ def play(game, strat):
             raise AssertionError(game.phase)
 
 
-def run(n, seed, options, variant, strat_a=new.choose_action, strat_b=old.choose_action):
+def run(n, seed, options, variant, strat_a=new.choose_action, strat_b=old.choose_action, kind="normal"):
     profile = make_profile(variant, options)
     rng = random.Random(seed)
     total, wins, games = {"a": 0, "b": 0}, {"a": 0, "b": 0}, 0
-    for _ in range(n):
+    for i in range(n):
         deck = shuffled_deck(variant, rng)
         for assign in (("a", "b", "a", "b"), ("b", "a", "b", "a")):
-            game = start_next_game(new_round(profile), profile, list(deck))
+            if kind == "normal":
+                game = start_next_game(new_round(profile), profile, list(deck))
+            else:                                   # gleiche Verteilung fuer beide Sitzzuordnungen: Zufall nur aus (Seed, Nummer)
+                game = scenarios.make_game(random.Random(f"{seed}:{i}"), kind, variant, options)
             play(game, [strat_a if x == "a" else strat_b for x in assign])
             games += 1
             for seat, x in enumerate(assign):
@@ -82,8 +90,12 @@ if __name__ == "__main__":
     seed = int(args[1]) if len(args) > 1 else 1
     which = args[2] if len(args) > 2 else "ddv"
     side = {"a": {}, "b": {}}
+    kind = "normal"
     for flag in args[3:]:
         key, _, value = flag.partition("=")
+        if key == "spielart":
+            kind = value
+            continue
         target, _, name = key.rpartition(".")
         parsed = parse(value, new.TUNE.get(name))
         if target in ("a", "b"):
@@ -93,7 +105,9 @@ if __name__ == "__main__":
     strat_a = with_tune(side["a"]) if side["a"] else new.choose_action
     strat_b = with_tune(side["b"]) if side["b"] else old.choose_action   # b.xyz=... -> b ist eine Variante der neuen Bots
     start = time.time()
-    total, wins, games = run(n, seed, ALL if which == "alle" else RuleOptions(),
-                             DeckVariant.WITHOUT_NINES if which == "ohne9" else DeckVariant.WITH_NINES, strat_a, strat_b)
-    print(f"{which}: Punkte a {total['a']:+d} / b {total['b']:+d}, Siege {wins['a']}:{wins['b']} "
+    options = ALL if which == "alle" else RuleOptions()
+    if kind in ("poverty", "schweinchen"):
+        options = RuleOptions(**{**options.to_dict(), kind: True})
+    total, wins, games = run(n, seed, options, DeckVariant.WITHOUT_NINES if which == "ohne9" else DeckVariant.WITH_NINES, strat_a, strat_b, kind)
+    print(f"{which}{'' if kind == 'normal' else ' / ' + kind}: Punkte a {total['a']:+d} / b {total['b']:+d}, Siege {wins['a']}:{wins['b']} "
           f"({games} Spiele, {time.time() - start:.0f}s)")

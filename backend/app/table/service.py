@@ -36,6 +36,7 @@ SHORT = 1.2             # Taufe, Ansage, Vorbehalts-Entscheidung (Solo/Armut)
 DECLARE = 1.7           # Vorbehaltsabfrage ("gesund"/"Vorbehalt"): so lange, dass man jede Antwort mitlesen kann
 REVEAL = 3.0            # nach der letzten Antwort: Ergebnis der Abfrage bleibt sichtbar, bevor die erste Karte faellt
 TRICK_PAUSE = 2.4       # nach einem vollstaendigen Stich: alle sollen ihn sehen koennen
+PACE = {"factor": 1.0}  # Tempo-Faktor des Betreibers: multipliziert alle Wartezeiten der Bots (Betreiber-Backend, Reiter BOTS)
 
 
 MAX_BOT_STEPS = 400  # Schutz vor Endlosschleifen; ein Spiel hat < 120 Aktionen
@@ -211,7 +212,12 @@ class TableService:
 
     # --- Getakteter Botbetrieb ---
     def pending_delay(self, code: str) -> float | None:
-        """Wartezeit vor dem naechsten Botzug oder ``None``, wenn kein Bot dran ist (oder der Mensch "weiter" druecken muss)."""
+        """Wartezeit vor dem naechsten Botzug (Sekunden, mal ``PACE["factor"]``) oder ``None``."""
+        delay = self._base_delay(code)
+        return delay if delay is None or PACE["factor"] == 1.0 else delay * PACE["factor"]
+
+    def _base_delay(self, code: str) -> float | None:
+        """Grundwartezeit vor dem naechsten Botzug oder ``None``, wenn kein Bot dran ist (oder der Mensch "weiter" druecken muss)."""
         stored = self.store.load(code)
         if stored is None:
             return None

@@ -71,12 +71,19 @@ Im Browser spricht die App nur mit demselben Ursprung (`/api`, `/socket.io`). Da
 ### Die Bots
 
 - **Grundstrategie** (`bots.py`): regelkonforme Heuristik über `bot_view`, mit **Gedächtnis**: ungesehene Karten, nachgewiesene Leerfarben und Trumpf je Mitspieler, Augen je Sitz.
-- **Durchrechnen** (`pimc.py`, Normalspiele): Die ungesehenen Karten werden regelkonform zufällig auf die Mitspieler verteilt (Handgrößen, Leerfarben, bekannte Kreuz-Damen), und jede erlaubte Karte wird in vielen solchen Stichproben zu Ende gespielt. Gewählt wird die Karte mit den meisten erwarteten Augen für die eigene Partei. Ergebnisse werden je Spielstand zwischengespeichert.
+- **Durchrechnen** (`pimc.py`, alle Spielarten): Die ungesehenen Karten werden regelkonform zufällig auf die Mitspieler verteilt (Handgrößen, Leerfarben, bekannte Kreuz-Damen), und jede erlaubte Karte wird in vielen solchen Stichproben zu Ende gespielt. Gewählt wird die Karte mit den meisten erwarteten Augen für die eigene Partei. Ergebnisse werden je Spielstand zwischengespeichert. Die Parteien der Stichproben richten sich nach der Spielart:
+  - **Normalspiel** (auch mit Schweinchen, das nur die Rangfolge ändert): Kreuz-Damen-Parteien.
+  - **Solo** (alle sieben): Solist gegen drei, öffentlich bekannt.
+  - **Armut**: der Arme und sein Käufer sind Re (öffentlich); die getauschten Karten kennt außer den Beteiligten niemand.
+  - **Hochzeit**: Der Spieler mit beiden Kreuz-Damen ist Re; sein Partner ist, wer in den ersten drei Stichen den ersten fremden Stich gewinnt, sonst wird es ein Solo. Die Stichproben bilden dieses Wandern der Partei nach.
+  - **Öffentliche Folgerungen**: Nach einer Schweinchen-Ansage liegen alle ungespielten Karo-Asse beim Ansager, bei der Hochzeit alle ungespielten Kreuz-Damen. Das sind keine verdeckten Informationen. Abschaltbar mit `TUNE["pimc_public"]`.
+  - Je Spielart gibt es einen Schalter (`TUNE["pimc_solo" | "pimc_poverty" | "pimc_wedding"]`); ausgeschaltet gilt die Heuristik.
 - **Ansagen** per Stichproben: Re/Kontra ab 75 % Gewinnchance, Absagen ab 85 % Erfolgschance. Die Schwellen wurden im Selbstspiel abgestimmt.
-- **Armut, Solo, Hochzeit** nutzen die Heuristik (Armut: Anmelden mit höchstens 3 Trümpfen, Übernehmen ab 6 Trümpfen bzw. ab 5 mit Kreuz-Dame).
+- **Vorbehalte und Armut** (Anmelden mit höchstens 3 Trümpfen, Übernehmen ab 6 Trümpfen bzw. ab 5 mit Kreuz-Dame) sowie **Ansagen außerhalb des Normalspiels** folgen weiterhin festen Regeln (Heuristik).
 - **Messung.** Im Selbstspiel schlagen die Bots die frühere gedächtnislose Strategie deutlich (je 500 Spiele mit DDV-Regeln: Punkte +404 : −404, Siege 523 : 476). Ein Schätzer der Parteizugehörigkeit aus dem Spielverhalten brachte keinen messbaren Gewinn bei doppelter Rechenzeit und ist abgeschaltet (`TUNE["infer"]`). Reproduzieren: `python3 -m tools.bot_tournament` (siehe [DEVELOPMENT.md](DEVELOPMENT.md#bots-messen)).
+- **Einstellbar im Betrieb:** Der Betreiber schaltet im Reiter BOTS Durchrechnen, Schwellen und Tempo (`app/ops/bot_tuning.py`: Katalog mit Texten und Grenzen, Prüfung, Anwenden auf `bots.TUNE`). Der Stand liegt in `setting` (`bot_tuning`).
 - **Rechenzeit** im Mittel rund 50 ms je Aktion, deutlich unter der Bedenkzeit.
-- **Bekannte Grenzen:** einfaches Gegnermodell (alle spielen die Grundstrategie), kein Durchrechnen bei Solo und Hochzeit, keine freiwilligen Soli.
+- **Bekannte Grenzen:** einfaches Gegnermodell (alle spielen die Grundstrategie), Ansagen, Vorbehalte und Armut-Tausch sind außerhalb des Normalspiels noch Heuristik, keine Absagen im Solo, keine freiwilligen Soli.
 - **Takt am Tisch:** Bedenkzeit 1,0 bis 1,7 s, Vorbehaltsantwort 1,7 s, 3,0 s nach der letzten Antwort bis zur ersten Karte, 2,4 s Pause nach einem Stich. Im Spiel mit **genau einem Menschen** wartet der Server nach jedem Stich auf „Nächster Stich“ (`POST /continue`).
 
 ### Datenhaltung

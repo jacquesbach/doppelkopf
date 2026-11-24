@@ -18,7 +18,7 @@ Eine technische Übersicht für Entwickler und Betreiber: welche Daten die Softw
 | `suggestion` | Titel und Beschreibung eines Vorschlags, Status | Rückmeldungen sammeln | bis der Betreiber ausblendet/löscht |
 | `suggestion_vote` | **Hash** der zufälligen Browser-Kennung, Vorschlag, Zeit | ein Daumen je Browser | mit dem Vorschlag |
 | `phrase` | Chat-Sprüche (vom Betreiber gepflegt) | Schnell-Sprüche im Chat | dauerhaft (Betreiber) |
-| `setting` | Farben, Banner, Vorgaben (Hell/Dunkel, Online-Status ein/aus) | Betreiber-Einstellungen | dauerhaft (Betreiber) |
+| `setting` | Farben, Banner, Vorgaben (Hell/Dunkel, Online-Status ein/aus), Bot-Einstellungen | Betreiber-Einstellungen | dauerhaft (Betreiber) |
 | `error_entry` | Zeit, Quelle, Pfad **ohne Parameter**, Fehlerart, gekürzte Meldung, Stacktrace, Zähler | Fehlersuche | nach 30 Tagen, höchstens 300 Einträge |
 
 Nicht in der Datenbank: IP-Adressen, Chat-Nachrichten, Passwörter im Klartext, Sitzungs-Tokens im Klartext, Platz-Codes.

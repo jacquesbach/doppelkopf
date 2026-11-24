@@ -16,9 +16,11 @@ from ..models import (ErrorEntry, GameEvent, GameHistory, GameSnapshot, Member, 
                       TableLog, utcnow)
 from ..services import new_token, token_digest
 from . import errors as errlog
+from . import bot_tuning
 from . import settings as site
 
 SETTINGS_KEY = "site_settings"
+BOTS_KEY = "bot_tuning"
 SPECTATOR_NAME = "Betreiber"
 
 
@@ -44,6 +46,31 @@ class SqlSettings:
             db.session.add(Setting(key=SETTINGS_KEY, value=site.dumps(data)))
         else:
             row.value = site.dumps(data)
+        db.session.commit()
+        return data
+
+    def reset(self) -> dict:
+        return self.put({})
+
+
+class SqlBotTuning:
+    """Bot-Einstellungen des Betreibers (eigener Schluessel, nie Teil der oeffentlichen ``site_settings``)."""
+
+    def saved(self) -> dict | None:
+        """Gespeicherter Stand oder ``None``, wenn der Betreiber nie gespeichert hat."""
+        row = db.session.get(Setting, BOTS_KEY)
+        return bot_tuning.loads(row.value if row else None)
+
+    def get(self) -> dict:
+        return self.saved() or bot_tuning.normalize({})
+
+    def put(self, data: dict) -> dict:
+        data = bot_tuning.normalize(data)
+        row = db.session.get(Setting, BOTS_KEY)
+        if row is None:
+            db.session.add(Setting(key=BOTS_KEY, value=bot_tuning.dumps(data)))
+        else:
+            row.value = bot_tuning.dumps(data)
         db.session.commit()
         return data
 

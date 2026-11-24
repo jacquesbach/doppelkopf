@@ -34,7 +34,7 @@ Alle Variablen: [`../docs/CONFIGURATION.md`](../docs/CONFIGURATION.md). Routen u
 | `app/guard.py`, `app/seatcode.py`, `app/presence.py` | Zugangsschutz, Platz-Codes, freiwilliger Online-Status |
 | `app/housekeeping.py` | räumt verwaiste Tische und alte Einträge auf |
 | `app/db_access.py`, `app/models.py` | SQLAlchemy- und Socket.IO-Anbindung (bewusst dünn), Tabellen |
-| `tools/bot_tournament.py` | Bot-Turnier: Selbstspiel zum Messen der Bot-Stärke |
+| `tools/bot_tournament.py`, `tools/scenarios.py` | Bot-Turnier: Selbstspiel zum Messen der Bot-Stärke, auch gezielt je Spielart (Solo, Armut, Hochzeit, Schweinchen) |
 | `tests/` | `rules/` (Regelkern), `service/` (Tischschicht, HTTP, Bots), `test_*.py` (echte App mit Datenbank) |
 
 Die Regel „Fachlogik ohne Framework“ gilt durchgehend: Regelkern, Tischschicht und Teile von `community/` und `ops/` kennen weder Flask noch SQL. Das SQL steht in `sql.py` bzw. `db_access.py`.
@@ -45,7 +45,7 @@ Mehr dazu: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 ```bash
 cd backend
 python -m unittest discover -s tests/rules -t .      # Regelkern (177 Tests), ohne Flask lauffähig
-python -m unittest discover -s tests/service -t .    # Tischschicht, Bots, HTTP mit Speicher-Stores (228 Tests)
+python -m unittest discover -s tests/service -t .    # Tischschicht, Bots, HTTP mit Speicher-Stores (262 Tests)
 python -m pytest -q tests/test_api_flow.py tests/test_rooms.py tests/test_community.py   # echte App (braucht requirements.txt)
 python -m pytest -q tests/test_access.py             # Zugangsschutz mit Datenbank (noch nicht in der CI)
 ```

@@ -96,6 +96,10 @@ def create_app(test_config=None):
         _ensure_columns()
         from .community.sql import seed_default_phrases
         seed_default_phrases()
+        from .ops import bot_tuning
+        saved = app.extensions["bot_tuning"].saved()
+        if saved is not None:                  # der Betreiber hat die Bots eingestellt: nach einem Neustart wieder anwenden
+            bot_tuning.apply(saved)
 
     register_socket_handlers()
     if paced and not app.config.get("TESTING"):
@@ -111,13 +115,14 @@ def _register_ops(app, service, runner, chat, admin_auth, stats):
     from .models import Room
     from .ops.api import OpsDeps, create_ops_blueprint
     from .ops.errors import LogHandler
-    from .ops.sql import SqlErrors, SqlLive, SqlSettings, SqlSystem
+    from .ops.sql import SqlBotTuning, SqlErrors, SqlLive, SqlSettings, SqlSystem
     from .presence import PresenceRegistry
     from .services import public_room
 
     settings, errors, system = SqlSettings(), SqlErrors(), SqlSystem()
+    bots_store = SqlBotTuning()
     presence = PresenceRegistry()
-    app.extensions.update(site_settings=settings, error_log=errors, presence=presence)
+    app.extensions.update(site_settings=settings, error_log=errors, presence=presence, bot_tuning=bots_store)
     db_path = app.config["SQLALCHEMY_DATABASE_URI"].removeprefix("sqlite:///") if \
         app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:///") else None
 
@@ -139,7 +144,7 @@ def _register_ops(app, service, runner, chat, admin_auth, stats):
 
     app.register_blueprint(create_ops_blueprint(OpsDeps(
         admin=admin_auth, settings=settings, live=SqlLive(chat), errors=errors, stats=stats, system=runtime,
-        notify=notify, started_at=time.time())), url_prefix="/api")
+        notify=notify, started_at=time.time(), bots=bots_store)), url_prefix="/api")
 
     if not app.config.get("TESTING"):
         # Alle ERROR-Eintraege mit Ausnahme (auch aus der Bot-Schleife) landen im Fehler-Log des Dashboards.

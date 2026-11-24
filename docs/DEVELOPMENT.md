@@ -102,7 +102,11 @@ Das Bot-Turnier lässt zwei Versionen gegeneinander auf denselben Kartenverteilu
 cd backend
 python3 -m tools.bot_tournament 250 1 ddv                 # Verteilungen, Zufallssaat, Regelsatz (ddv | alle | ohne9)
 python3 -m tools.bot_tournament 250 1 ddv pimc=1 announce=pimc
+# gezielt eine Spielart messen (Verteilungen werden zurechtgerückt, siehe tools/scenarios.py)
+python3 -m tools.bot_tournament 200 1 ddv pimc=1 announce=pimc spielart=solo a.pimc_solo=1 b.pimc_solo=0
 ```
+
+`spielart=` kennt `solo`, `wedding`, `poverty` und `schweinchen`; `a.name=wert` bzw. `b.name=wert` setzt eine Einstellung nur für eine Seite (hier: Durchrechnen im Solo an gegen aus, sonst gleich).
 
 Ausgegeben werden die Punktesumme beider Seiten und die Zahl gewonnener Spiele. Mehrere hundert Spiele dauern einige Minuten. Die frühere Strategie liegt als Vergleich in `backend/tests/service/legacy_bots.py`.
 

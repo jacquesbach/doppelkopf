@@ -8,11 +8,14 @@ Bausteine (siehe auch ``pimc.py``):
 * **Gedaechtnis** (``Memory``): ungesehene Karten, Farben/Trumpf, die ein Mitspieler nachweislich nicht mehr hat, Augen je Sitz.
   Daraus: "ist meine Karte sicher?" (``threatened``/``is_master``) fuer Ausspielen, Schmieren und Stechen.
 * **Durchrechnen** (``pimc.choose``): ungesehene Karten werden regelkonform auf die Mitspieler verteilt, jede erlaubte Karte
-  wird in vielen solchen Stichproben zu Ende gespielt; gewaehlt wird die Karte mit den meisten erwarteten Augen (nur
-  Normalspiel; sonst gilt die Heuristik unten).
+  wird in vielen solchen Stichproben zu Ende gespielt; gewaehlt wird die Karte mit den meisten erwarteten Augen. Gilt fuer
+  Normalspiel (auch mit Schweinchen), Solo (alle sieben), Armut und Hochzeit; die Parteien der Stichproben richten sich nach der
+  Spielart (siehe ``_pimc_kind``, Schalter ``TUNE["pimc_solo" | "pimc_poverty" | "pimc_wedding" | "pimc_public"]``). Oeffentlich
+  Angesagtes wird genutzt: nach der Schweinchen-Ansage liegen alle ungespielten Karo-Asse beim Ansager (bei der Hochzeit alle
+  ungespielten Kreuz-Damen).
 * **Ansagen** (``_sampled_announce``): Re/Kontra und Absagen, wenn die Erfolgschance in den Stichproben hoch genug ist
   (Re/Kontra ab 75 %, Absagen ab 85 %).
-* **Heuristik** (Solo, Hochzeit, Rueckfall): Ausspielen sicherer Fehlfarben-Karten, sonst "leere" Karte; Partner schmieren,
+* **Heuristik** (Rueckfall, wenn das Durchrechnen ausgeschaltet oder nicht anwendbar ist): Ausspielen sicherer Fehlfarben-Karten, sonst "leere" Karte; Partner schmieren,
   sonst mit der schwaechsten (sicheren) gewinnenden Karte stechen; sonst augenaermste Karte abwerfen. Hohe Truempfe werden
   nicht fuer wenige Augen verbraucht.
 * **Partner erkennen** (``known_parties``): aus eigener Partei, Solo/Hochzeit, Ansagen (``clarified``) und gespielten
@@ -20,8 +23,7 @@ Bausteine (siehe auch ``pimc.py``):
 * **Vorbehalt:** nur mit beiden Kreuz-Damen (Hochzeit) oder - bei aktiver Hausregel - mit hoechstens 3 Truempfen (Armut).
   Pflicht-/Lustsolo wird nie freiwillig gespielt.
 * **Armut:** abgegeben werden alle Truempfe (aufgefuellt mit den schwaechsten Fehlkarten); uebernommen wird ab 6 Truempfen
-  (ab 5 mit Kreuz-Dame); zurueckgegeben werden die schwaechsten Fehlkarten. Der Arme und der Kaeufer sind Re (``known_parties``);
-  die Stichproben-KI (pimc) kennt nur Kreuz-Damen-Parteien und bleibt in einer Armut aus.
+  (ab 5 mit Kreuz-Dame); zurueckgegeben werden die schwaechsten Fehlkarten. Der Arme und der Kaeufer sind Re (``known_parties``).
 
 Staerke gemessen per Selbstspiel gegen die alte Grundstrategie: ``python3 -m tools.bot_tournament``.
 """
@@ -39,6 +41,7 @@ from ..rules.trump import GameType, TrumpConfig, is_trump, lead_kind, strength, 
 
 _QUEEN_CLUBS = (Rank.QUEEN, Suit.CLUBS)
 _DULLE = (Rank.TEN, Suit.HEARTS)
+_FOX = (Rank.ACE, Suit.DIAMONDS)
 
 
 # --- Hilfen -------------------------------------------------------------------------------------
@@ -186,8 +189,10 @@ def known_parties(view: dict, plays: list[Play]) -> dict[int, str | None]:
 
 # Schalter fuer Auswertungen (Selbstspiel-Vergleich); Standard = alles an.
 TUNE = {"lead_master": True, "lead_trump": False, "lead_risk": True, "ally_secure": True, "safe_win": True,
-        "short_suit": True, "pimc": True, "pimc_tricks": 12, "pimc_budget": 160, "pimc_win": False,
+        "short_suit": True, "pimc": True, "pimc_solo": True, "pimc_poverty": True, "pimc_wedding": True, "pimc_public": True,
+        "pimc_tricks": 12, "pimc_budget": 160, "pimc_win": False,
         "infer": False, "infer_w": 0.5, "announce": "pimc", "announce_p0": 0.75, "announce_p1": 0.85, "announce_samples": 30}
+TUNE_DEFAULTS = dict(TUNE)      # Werkzeug-Standard (``ops/bot_tuning``: Betreiber-Einstellungen und "Zuruecksetzen")
 
 
 # --- Gedaechtnis --------------------------------------------------------------------------------
@@ -300,30 +305,79 @@ def _tune_key() -> str:
     return f"{TUNE['infer']}{TUNE['infer_w']}{TUNE['pimc_budget']}"
 
 
+def _pimc_kind(view: dict) -> str | None:
+    """Fuer welche Art Spiel das Durchrechnen rechnet: ``normal``, ``solo`` (alle sieben Soli), ``poverty`` (Armut), ``wedding`` (Hochzeit,
+    auch nach der Klaerung bzw. als Solo-Ausgang). ``None`` = Heuristik. Ein Schweinchen aendert nur die Rangfolge (``_cfg``) und ist daher ein Normalspiel."""
+    if _game_type(view).is_solo:
+        return "solo" if view.get("soloSeat") is not None else None
+    if _is_poverty_game(view):
+        return "poverty"
+    if view.get("weddingSeat") is not None:
+        return "wedding"
+    return "normal"
+
+
+def _announced_cards(view: dict, unseen: list[Card]) -> dict[int, list[Card]]:
+    """Was nach einer offenen Ansage jeder am Tisch weiss: Wer "Schweinchen" erklaert hat, hielt beide Karo-Asse, wer eine Hochzeit
+    angemeldet hat, beide Kreuz-Damen. Alle davon noch nicht gespielten Karten (= die ungesehenen Exemplare) liegen also bei ihm.
+    Es sind nur Schluesse aus oeffentlichen Ansagen; fremde Haende kennt der Bot nicht."""
+    forced: dict[int, list[Card]] = {}
+    for seat, face in ((view.get("schweinchenSeat"), _FOX), (view.get("weddingSeat"), _QUEEN_CLUBS)):
+        if seat is not None and seat != view["seat"]:
+            forced.setdefault(seat, []).extend(c for c in unseen if c.face == face)
+    return {s: cs for s, cs in forced.items() if cs}
+
+
 def _sampled_choice(view: dict, cands: list[Card], plays: list[Play], mem: Memory, known: dict, second: bool) -> str | None:
-    """Kartenwahl per Stichproben (siehe ``pimc``); ``None`` = Heuristik soll entscheiden."""
+    """Kartenwahl per Stichproben (siehe ``pimc``); ``None`` = Heuristik soll entscheiden.
+
+    Die Parteien der Stichproben richten sich nach der Spielart: Normalspiel = Kreuz-Damen; Solo und Armut = oeffentlich bekannt
+    (Solist bzw. Armer und Kaeufer gegen die uebrigen); Hochzeit = der Hochzeiter ist Re, sein Partner ergibt sich im Durchlauf
+    (erster fremder Stichgewinner, spaetestens im dritten Stich), nach der Klaerung stehen die Parteien fest.
+    """
     gt, cfg, seat = _game_type(view), _cfg(view), view["seat"]
     hand = _hand(view)
-    if gt is not GameType.NORMAL or view.get("weddingSeat") is not None or len(cands) < 2 or _is_poverty_game(view):
+    kind = _pimc_kind(view)
+    if kind is None or len(cands) < 2:
+        return None
+    if kind != "normal" and not TUNE["pimc_" + kind]:
         return None
     if len(hand) > TUNE["pimc_tricks"]:
         return None
     key = "|".join([str(seat), ",".join(sorted(c.id for c in hand)), ",".join(f"{p.seat}{p.card.id}" for p in plays),
                     str(mem.tricks_played), str(view["myParty"]), _tune_key()])
+    if kind != "normal":                      # Spielart und feste Sitze gehoeren in den Schluessel (das Normalspiel behaelt seinen alten)
+        key += "|" + "|".join([kind, gt.value, str(view.get("soloSeat")), str(view.get("weddingSeat")), str(view.get("weddingPartner")),
+                               str((view.get("poverty") or {}).get("seat")), str((view.get("poverty") or {}).get("buyer"))])
+    unseen = [Card(face[1], face[0], i) for face, n in mem.unseen.items() for i in range(n)]
+    forced = _announced_cards(view, unseen) if TUNE["pimc_public"] else {}
+    if forced:                                # Schluessel um die offen angesagte Verteilung erweitern (das Normalspiel ohne Ansage behaelt seinen)
+        key += "|F" + ";".join(f"{s}:{','.join(sorted(c.id for c in cs))}" for s, cs in sorted(forced.items()))
     if key in _PIMC_CACHE:
         return _PIMC_CACHE[key]
-    unseen = [Card(face[1], face[0], i) for face, n in mem.unseen.items() for i in range(n)]
     sizes = dict(enumerate(view["handCounts"]))
-    re_played = {p.seat for t in view.get("playedTricks", []) for p in
-                 (Play(q["seat"], Card.from_dict(q["card"])) for q in t["plays"]) if p.card.face == _QUEEN_CLUBS}
-    re_played |= {p.seat for p in plays if p.card.face == _QUEEN_CLUBS}
-    mine = view["myParty"]
-    re_known = {s for s in range(4) if s != seat and known[s] == "re"}
-    kontra_known = {s for s in range(4) if s != seat and known[s] == "kontra"}
+    re_known: set[int] = set()
+    kontra_known: set[int] = set()
+    re_played: set[int] = set()
+    fixed = wedding = None
+    if kind == "normal":
+        re_played = {p.seat for t in view.get("playedTricks", []) for p in
+                     (Play(q["seat"], Card.from_dict(q["card"])) for q in t["plays"]) if p.card.face == _QUEEN_CLUBS}
+        re_played |= {p.seat for p in plays if p.card.face == _QUEEN_CLUBS}
+        re_known = {s for s in range(4) if s != seat and known[s] == "re"}
+        kontra_known = {s for s in range(4) if s != seat and known[s] == "kontra"}
+    elif kind == "wedding" and view.get("weddingClarifyingTrick") is None:
+        wedding = (view["weddingSeat"], mem.tricks_played)                      # Partner noch offen
+    else:
+        if any(known[s] is None for s in range(4)):                             # Parteien nicht vollstaendig bekannt: Heuristik
+            return None
+        fixed = {s: known[s] == "re" for s in range(4)}
     samples = max(6, min(40, TUNE["pimc_budget"] // len(cands)))
     best = pimc.choose(seat, hand, cands, plays, unseen, sizes, mem.voids, mem.kind_of, re_known, kontra_known,
-                       re_played, mine == "re", gt, cfg, second, samples, key, dict(mem.points) if TUNE["pimc_win"] else None,
-                       _history(view, plays) if TUNE["infer"] else None, TUNE["infer_w"])
+                       re_played, view["myParty"] == "re", gt, cfg, second, samples, key,
+                       dict(mem.points) if TUNE["pimc_win"] else None,
+                       _history(view, plays) if TUNE["infer"] else None, TUNE["infer_w"],
+                       fixed_party=fixed, wedding=wedding, forced=forced or None)
     if len(_PIMC_CACHE) > 512:
         _PIMC_CACHE.clear()
     if best is not None:

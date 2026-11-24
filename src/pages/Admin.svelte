@@ -9,6 +9,7 @@
   import AdminPhrases from "../components/admin/AdminPhrases.svelte";
   import AdminSuggestions from "../components/admin/AdminSuggestions.svelte";
   import AdminLab from "../components/admin/AdminLab.svelte";
+  import AdminBots from "../components/admin/AdminBots.svelte";
   import { api } from "../lib/services.js";
 
   // Das Token liegt nur im Tab-Speicher (sessionStorage): Tab zu = abgemeldet.
@@ -19,6 +20,7 @@
     ["insights", "AUSWERTUNG"],
     ["system", "SYSTEM"],
     ["design", "DESIGN"],
+    ["bots", "BOTS"],
     ["phrases", "SPRÜCHE"],
     ["suggestions", "VORSCHLÄGE"],
     ["lab", "TEST-TISCH"],
@@ -153,6 +155,8 @@
           <AdminSystem {token} onAuthLost={authLost} />
         {:else if tab === "design"}
           <AdminDesign {token} onAuthLost={authLost} />
+        {:else if tab === "bots"}
+          <AdminBots {token} onAuthLost={authLost} />
         {:else if tab === "stats"}
           <AdminStats {token} onAuthLost={authLost} />
         {:else if tab === "phrases"}

@@ -158,7 +158,8 @@ Diese Einstellungen änderst du im Browser unter `/admin` im Reiter **DESIGN**. 
 - Vorgabe für den Tisch: hell oder dunkel (jeder Spieler kann am Tisch selbst umschalten),
 - „Wer ist online“ (Freunde-Funktion) ein- oder ausschalten.
 
-Die Chat-Sprüche pflegst du im Reiter **SPRÜCHE**.
+Die Chat-Sprüche pflegst du im Reiter **SPRÜCHE**. Die Bots stellst du im Reiter **BOTS** ein (Durchrechnen je Spielart, Ansage-Schwellen, Tempo;
+Schlüssel `bot_tuning` in derselben Tabelle, siehe [OPERATIONS.md](OPERATIONS.md#bot-einstellungen)).
 
 ## 6. Fest eingebaute Werte
 

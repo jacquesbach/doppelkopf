@@ -20,11 +20,14 @@ _DULLE = (Rank.TEN, Suit.HEARTS)
 
 
 def sample_hands(unseen: list[Card], sizes: dict[int, int], forbidden: dict[int, set], kind_of, must_have_queen: set,
-                 no_queen: set, rng: random.Random, attempts: int = 80) -> dict[int, list[Card]] | None:
+                 no_queen: set, rng: random.Random, attempts: int = 80,
+                 forced: dict[int, list[Card]] | None = None) -> dict[int, list[Card]] | None:
     """Verteilt ``unseen`` zufaellig auf die Sitze in ``sizes`` (Handgroesse je Sitz).
 
     ``forbidden[seat]``: Kartenarten (Farbe/'trump'), die der Sitz nicht haben darf. ``must_have_queen``: Sitze, die
-    sicher eine Kreuz-Dame halten, ``no_queen``: Sitze, die sicher keine haben. ``None`` = keine gueltige Verteilung gefunden.
+    sicher eine Kreuz-Dame halten, ``no_queen``: Sitze, die sicher keine haben. ``forced[seat]``: Karten aus ``unseen``, die
+    sicher bei diesem Sitz liegen (z. B. die Karo-Asse des Schweinchen-Spielers, die Kreuz-Damen des Hochzeiters).
+    ``None`` = keine gueltige Verteilung gefunden.
     """
     for _ in range(attempts):
         cards = list(unseen)
@@ -32,6 +35,16 @@ def sample_hands(unseen: list[Card], sizes: dict[int, int], forbidden: dict[int,
         hands = {s: [] for s in sizes}
         room = dict(sizes)
         ok = True
+        for seat, fixed in (forced or {}).items():                    # sichere Karten zuerst festlegen
+            for c in fixed:
+                if c not in cards or room.get(seat, 0) == 0 or kind_of(c.face) in forbidden[seat]:
+                    ok = False
+                    break
+                cards.remove(c); hands[seat].append(c); room[seat] -= 1
+            if not ok:
+                break
+        if not ok:
+            continue
         queens = [c for c in cards if c.face == _QUEEN_CLUBS]
         for seat in must_have_queen:                                   # je eine Dame fuer sichere Re-Spieler
             pick = next((q for q in queens if kind_of(q.face) not in forbidden[seat]), None)
@@ -145,6 +158,42 @@ def rollout(hands: dict[int, list[Card]], plays: list[Play], party: dict[int, bo
             return mine
 
 
+def rollout_wedding(hands: dict[int, list[Card]], plays: list[Play], wedding: int, tricks_done: int, gt: GameType,
+                    cfg: TrumpConfig, second: bool, start: int = 0) -> tuple[dict[int, int], dict[int, bool]]:
+    """Spielt den Rest einer noch ungeklaerten Hochzeit zu Ende (TSR 4.4.3).
+
+    Der Hochzeiter (``wedding``) ist Re. Wer als Erster einen Stich gewinnt, der nicht der Hochzeiter ist, wird sein Partner;
+    gewinnt der Hochzeiter die ersten drei Stiche, spielt er allein (Solo). Bis dahin gelten die uebrigen drei als Kontra.
+    ``tricks_done``: schon abgeschlossene Stiche. Rueckgabe: (Augen je Sitz in den Reststichen, endgueltige Parteien).
+    """
+    party = {s: s == wedding for s in range(4)}
+    clarified = False
+    plays = list(plays)
+    points = {s: 0 for s in range(4)}
+    trick_no = tricks_done + 1
+    seat = (plays[-1].seat + 1) % 4 if plays else start
+    while True:
+        while len(plays) < 4:
+            if not hands[seat]:
+                return points, party
+            card = _policy(hands[seat], plays, seat, party, gt, cfg, second)
+            hands[seat].remove(card)
+            plays.append(Play(seat, card))
+            seat = (seat + 1) % 4
+        winner = plays[trick_winner_index(plays, gt, cfg, second)].seat
+        points[winner] += sum(p.card.value for p in plays)
+        if not clarified:
+            if winner != wedding:
+                party[winner] = True
+                clarified = True
+            elif trick_no >= 3:
+                clarified = True
+        plays, seat = [], winner
+        trick_no += 1
+        if not any(hands.values()):
+            return points, party
+
+
 def _value(future: int, collected: dict[int, int] | None, party: dict[int, bool], me: int) -> float:
     """Bewertung eines ausgespielten Spiels: Sieg zaehlt am meisten, danach die Augen (mehr Augen = mehr Zusatzpunkte)."""
     if collected is None:
@@ -158,29 +207,45 @@ def choose(me: int, my_hand: list[Card], cands: list[Card], plays: list[Play], u
            sizes: dict[int, int], forbidden: dict[int, set], kind_of, re_known: set, kontra_known: set,
            re_played: set, my_party_re: bool, gt: GameType, cfg: TrumpConfig, second: bool, samples: int,
            key: str, collected: dict[int, int] | None = None, history: list[list[Play]] | None = None,
-           mismatch: float = 1.0) -> Card | None:
-    """Beste Karte aus ``cands`` oder ``None``, wenn keine Stichprobe gelang."""
+           mismatch: float = 1.0, *, fixed_party: dict[int, bool] | None = None,
+           wedding: tuple[int, int] | None = None, forced: dict[int, list[Card]] | None = None) -> Card | None:
+    """Beste Karte aus ``cands`` oder ``None``, wenn keine Stichprobe gelang.
+
+    Parteien der Stichproben:
+    * Normalspiel (Standard): Re ist, wer eine Kreuz-Dame haelt (``re_known``/``kontra_known``/``re_played`` schraenken die Verteilung ein).
+    * ``fixed_party`` (Solo, Armut, geklaerte Hochzeit): die Parteien stehen oeffentlich fest (Sitz -> ist Re); keine Dame-Annahmen.
+    * ``wedding = (Hochzeiter, abgeschlossene Stiche)``: ungeklaerte Hochzeit; der Partner ergibt sich im Durchlauf (``rollout_wedding``).
+    ``forced``: Karten, die sicher bei einem Sitz liegen (siehe ``sample_hands``).
+    """
     rng = random.Random(zlib.crc32(key.encode()))
     others = {s: n for s, n in sizes.items() if s != me}
     scores = {c.id: 0.0 for c in cands}
     used = 0
     for _ in range(samples):
-        dealt = sample_hands(unseen, others, forbidden, kind_of, re_known - re_played, kontra_known, rng)
+        dealt = sample_hands(unseen, others, forbidden, kind_of, re_known - re_played, kontra_known, rng, forced=forced)
         if dealt is None:
             continue
         used += 1
-        re_seats = set(re_played) | {s for s, h in dealt.items() if any(c.face == _QUEEN_CLUBS for c in h)}
-        if any(c.face == _QUEEN_CLUBS for c in my_hand):
-            re_seats.add(me)
-        party = {s: (s in re_seats) for s in range(4)}
+        if fixed_party is not None:
+            party = dict(fixed_party)
+        elif wedding is None:
+            re_seats = set(re_played) | {s for s, h in dealt.items() if any(c.face == _QUEEN_CLUBS for c in h)}
+            if any(c.face == _QUEEN_CLUBS for c in my_hand):
+                re_seats.add(me)
+            party = {s: (s in re_seats) for s in range(4)}
         weight = 1.0
-        if history is not None and mismatch < 1.0:
+        if history is not None and mismatch < 1.0 and wedding is None:
             weight = history_weight(history, dealt, party, me, gt, cfg, second, mismatch)
         for c in cands:
             hands = {s: list(h) for s, h in dealt.items()}
             hands[me] = [h for h in my_hand if h != c]
-            future = rollout(hands, plays + [Play(me, c)], party, party[me], gt, cfg, second)
-            scores[c.id] += weight * _value(future, collected, party, me)
+            if wedding is not None:
+                points, final = rollout_wedding(hands, plays + [Play(me, c)], wedding[0], wedding[1], gt, cfg, second)
+                future = sum(p for s, p in points.items() if final[s] == final[me])
+                scores[c.id] += weight * _value(future, collected, final, me)
+            else:
+                future = rollout(hands, plays + [Play(me, c)], party, party[me], gt, cfg, second)
+                scores[c.id] += weight * _value(future, collected, party, me)
     if not used:
         return None
     return max(cands, key=lambda c: (scores[c.id], -strength(c, gt, cfg), c.id))

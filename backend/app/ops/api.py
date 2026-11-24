@@ -10,6 +10,7 @@ from functools import wraps
 from flask import Blueprint, jsonify, request
 
 from ..community.admin_auth import AdminAuth
+from . import bot_tuning
 from . import system as sysinfo
 from .insights import summarize_insights
 from .live import NoticeError, clean_notice, live_overview
@@ -30,6 +31,7 @@ class OpsDeps:
     clock: object = time.time
     started_at: float = field(default_factory=time.time)
     environ: object = field(default_factory=lambda: os.environ)
+    bots: object = field(default_factory=bot_tuning.MemoryBotTuning)     # get() / put(data) / reset()
 
 
 def _err(message: str, status: int, code: str = "bad_request"):
@@ -79,6 +81,33 @@ def create_ops_blueprint(deps: OpsDeps) -> Blueprint:
     @admin_only
     def admin_settings_reset():
         return jsonify(deps.settings.reset())
+
+    # --- Bot-Einstellungen ---
+    def bots_payload(values: dict) -> dict:
+        return {"values": values, **bot_tuning.schema()}
+
+    @bp.get("/admin/bots")
+    @admin_only
+    def admin_bots():
+        return jsonify(bots_payload(deps.bots.get()))
+
+    @bp.put("/admin/bots")
+    @admin_only
+    def admin_bots_save():
+        try:
+            data = bot_tuning.validate_update(body(), deps.bots.get())
+        except bot_tuning.BotTuningError as exc:
+            return _err(str(exc), 400, exc.code)
+        saved = deps.bots.put(data)
+        bot_tuning.apply(saved)                      # gilt sofort, auch fuer laufende Tische
+        return jsonify(bots_payload(saved))
+
+    @bp.post("/admin/bots/reset")
+    @admin_only
+    def admin_bots_reset():
+        saved = deps.bots.reset()
+        bot_tuning.apply(saved)
+        return jsonify(bots_payload(saved))
 
     # --- Live-Uebersicht und Eingriffe ---
     @bp.get("/admin/live")

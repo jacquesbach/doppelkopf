@@ -7,7 +7,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { PAGES, isIndexable, seoForKey } from "../src/lib/seo.js";
-import { RULES, RULES_LEAD, RULES_TITLE } from "../src/content/rules.js";
+import { RULES, RULES_LEAD, RULES_TITLE, RULES_TOC, cardEntryText } from "../src/content/rules.js";
 import { FAQ, FAQ_TITLE, HOME_FEATURES, HOME_H1, HOME_LEAD } from "../src/content/home.js";
 import { GITHUB_URL } from "../src/lib/site.js";
 
@@ -35,15 +35,47 @@ function blocksToHtml(blocks) {
   return blocks
     .map((block) => {
       switch (block.type) {
-        case "h2": return `<h2>${esc(block.text)}</h2>`;
+        case "h2": return `<h2${block.id ? ` id="${esc(block.id)}"` : ""}>${esc(block.text)}</h2>`;
         case "h3": return `<h3>${esc(block.text)}</h3>`;
         case "p": return `<p>${esc(block.text)}</p>`;
         case "ul": return `<ul>${block.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
         case "ol": return `<ol>${block.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ol>`;
+        case "note": return `<p><strong>${esc(block.title)}:</strong> ${esc(block.text)}</p>`;
+        case "table": return tableToHtml(block);
+        case "cards": return cardsToHtml(block);
         default: throw new Error(`Unbekannter Blocktyp: ${block.type}`);
       }
     })
+    .filter(Boolean)
     .join("\n");
+}
+
+const CELL = 'style="border:1px solid #000;padding:4px 8px;text-align:left;vertical-align:top"';
+
+function tableToHtml({ head, rows }) {
+  const th = head.map((h) => `<th ${CELL}>${esc(h)}</th>`).join("");
+  const body = rows.map((r) => `<tr>${r.map((c) => `<td ${CELL}>${esc(c)}</td>`).join("")}</tr>`).join("");
+  return `<table style="border-collapse:collapse;margin:0 0 16px"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+/** Spielkarten ohne Bilder: Kartennamen in Klartext, damit nichts nur im Bild steht. */
+function cardsToHtml(block) {
+  if (block.skipStatic) return "";
+  const rows = block.groups.map((g) => {
+    const names = g.items.map(cardEntryText).join(", ");
+    return `<li>${g.label ? `<strong>${esc(g.label)}:</strong> ` : ""}${esc(names)}</li>`;
+  });
+  return [
+    block.title ? `<p><strong>${esc(block.title)}</strong></p>` : "",
+    `<ul>${rows.join("")}</ul>`,
+    block.note ? `<p>${esc(block.note)}</p>` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function tocToHtml(toc) {
+  return `<nav aria-label="Inhaltsverzeichnis"><p><strong>Inhalt</strong></p><ul>${toc
+    .map((t) => `<li><a href="#${esc(t.id)}">${esc(t.label)}</a></li>`)
+    .join("")}</ul></nav>`;
 }
 
 const NAV =
@@ -69,7 +101,7 @@ export function staticContent(key) {
       ].join("\n");
       break;
     case "rules":
-      body = [`<h1>${esc(RULES_TITLE)}</h1>`, `<p>${esc(RULES_LEAD)}</p>`, blocksToHtml(RULES), NAV].join("\n");
+      body = [`<h1>${esc(RULES_TITLE)}</h1>`, `<p>${esc(RULES_LEAD)}</p>`, tocToHtml(RULES_TOC), blocksToHtml(RULES), NAV].join("\n");
       break;
     case "impressum":
       body = ["<h1>Impressum</h1>", "<p>Die Anbieterangaben werden per JavaScript geladen. Bitte aktiviere es in deinem Browser.</p>", NAV].join("\n");

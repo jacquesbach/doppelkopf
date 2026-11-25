@@ -104,7 +104,9 @@ test("Build: jede Seite bekommt eigenen Titel, canonical, robots und Klartext", 
   const rules = files["regeln/index.html"];
   assert.match(rules, /<title>Doppelkopf-Regeln einfach erklärt \| DOPPELKOPF\.CC<\/title>/);
   assert.match(rules, /<link rel="canonical" href="https:\/\/doppelkopf\.cc\/regeln" \/>/);
-  assert.match(rules, /<h2>Trumpf im Normalspiel<\/h2>/);
+  assert.match(rules, /<h2 id="trumpf">Trumpf im Normalspiel<\/h2>/);
+  assert.match(rules, /<a href="#trumpf">Trumpf<\/a>/);   // Inhaltsverzeichnis
+  assert.match(rules, /Herz Zehn \(Dulle\)/);              // Kartenbilder stehen auch als Text da
   assert.match(rules, /<meta property="og:url" content="https:\/\/doppelkopf\.cc\/regeln" \/>/);
 
   for (const file of ["impressum/index.html", "datenschutz/index.html", "app.html"]) {

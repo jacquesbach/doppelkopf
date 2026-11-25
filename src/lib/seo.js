@@ -19,7 +19,7 @@ export const PAGES = {
     path: "/regeln",
     title: `Doppelkopf-Regeln einfach erklärt | ${SITE_NAME}`,
     description:
-      "Doppelkopf-Regeln kompakt: Karten und Trümpfe, Spielablauf, Re und Kontra, Ansagen, Sonderpunkte und Zählung nach den DDV-Turnierregeln.",
+      "Doppelkopf-Regeln ausführlich erklärt: Karten und Trümpfe mit Bildern, Spielablauf, Re und Kontra, Solo, Ansagen und Zählung nach DDV-Regeln.",
     robots: ROBOTS_INDEX,
   },
   impressum: {
